@@ -10,7 +10,7 @@ import time
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--hg38-reference-fasta", default="hg38.fa", help="Path of hg38 reference genome FASTA file")
+parser.add_argument("-r", "--hg38-reference-fasta", default="hg38.fa", help="Path of hg38 reference genome FASTA file")
 parser.add_argument("--dry-run", action="store_true", help="Print commands without running them")
 parser.add_argument("--force-annotate", action="store_true", help="Run annotation step even if the output files already exist")
 parser.add_argument("--force-stats", action="store_true", help="Run annotation step even if the output files already exist")
@@ -65,6 +65,7 @@ catalogs_in_order = [
 	("PerfectRepeatsInReference", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
 	("PolymorphicTRsInT2TAssemblies", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
 	#("MukamelVNTRs", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/mukamel_VNTR_catalog.bed.gz"),
+        ("TRExplorer_Catalog_v1", "https://github.com/broadinstitute/tandem-repeat-catalog/releases/download/v1.0/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.json.gz"),
 ]
 
 
@@ -213,8 +214,8 @@ for catalog_name, _ in catalogs_in_order:
 		run(f"""python3 -m str_analysis.annotate_and_filter_str_catalog \
 								--verbose \
 								--trim-loci \
+								--gene-models-source gencode \
 								--reference-fasta {args.hg38_reference_fasta} \
-								--skip-gene-annotations \
 								--skip-disease-loci-annotations \
 								--output-path {annotated_catalog_path} \
 								{path}""")

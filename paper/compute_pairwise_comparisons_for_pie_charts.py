@@ -30,7 +30,7 @@ CATALOGS = [
 	("PolymorphicTRsInT2TAssemblies", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
 	("Adotto_v1.2", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/adotto_tr_catalog_v1.2.bed.gz"),
 	("PerfectRepeatsInReference", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
-	("NewCatalog", "https://github.com/broadinstitute/tandem-repeat-catalog/releases/download/v1.0/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.json.gz"),
+	("TRExplorer_Catalog_v1", "https://github.com/broadinstitute/tandem-repeat-catalog/releases/download/v1.0/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.json.gz"),
 	("PopSTR_Catalog", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/popstr_catalog_v2.bed.gz"),
 	("PlatinumTRs_v1.0", "https://zenodo.org/records/13178746/files/human_GRCh38_no_alt_analysis_set.platinumTRs-v1.0.trgt.bed.gz"),
 	("Chiu_et_al", "https://zenodo.org/records/11522276/files/hg38.v1.bed.gz"),
@@ -50,7 +50,7 @@ CATALOG_NAMES = {
 	"Chiu_et_al": "Chiu et al",
 	"PerfectRepeatsInReference": "All perfect repeats in hg38",
 	"PolymorphicTRsInT2TAssemblies": "Polymorphic TRs in 78 T2T assemblies",
-	"NewCatalog": "New catalog",
+	"TRExplorer_Catalog_v1": "TRExplorer Catalog v1",
 }
 
 def trim_catalog(bp, catalog_label, catalog_url, machine_size=1):
@@ -159,6 +159,7 @@ def process_pair(bp, catalog1, path1, catalog2, path2, machine_size=1):
 
 	s.command(f"""python3 -u -m str_analysis.merge_loci \
 		--discard-extra-fields-from-input-catalogs \
+		--write-bed-files-with-unique-loci \
 		--overlap-fraction 0.05 \
 		--write-outer-join-table \
 		--output-prefix merged___{catalog1}___vs___{catalog2} \
@@ -169,7 +170,9 @@ def process_pair(bp, catalog1, path1, catalog2, path2, machine_size=1):
 	s.command(f"ls -ltrh")
 
 	output_filename = f"merged___{catalog1}___vs___{catalog2}.outer_join_overlap_table.tsv.gz"
+	unique_loci_output_filename = f"merged___{catalog1}___vs___{catalog2}.trimmed.{catalog2}.unique_loci.bed.gz"
 	s.output(output_filename, download_to_dir=DOWNLOAD_TO_DIR)
+	s.output(unique_loci_output_filename, download_to_dir=DOWNLOAD_TO_DIR)
 
 	return s, os.path.join(OUTPUT_BASE_DIR, output_filename)
 
@@ -179,7 +182,7 @@ def main():
 
 	parser = bp.get_config_arg_parser()
 	parser.add_argument("--by-motif-size", action="store_true", help="Stratify the results by motif size")
-    args = parser.parse_known_args()
+	args, _ = parser.parse_known_args()
 
 	# trim catalogs
 	step1_map = {}
@@ -215,7 +218,7 @@ def main():
 			step2.depends_on(step1_map[catalog2])
 
 			local_output_paths = step2.get_output_paths_to_download_when_done()
-			assert len(local_output_paths) == 1
+			assert len(local_output_paths) > 1
 			local_join_table_paths[(catalog1, catalog2)] = local_output_paths[0][1]
 
 	bp.run()
@@ -305,7 +308,7 @@ def main():
 
 					f.write("\t".join(map(str, [
 						catalog_size[catalog1],
-						catalog_size_by_motif_size[(catalog1, min_motif_size)],
+						catalog_size_by_motif_size.get((catalog1, min_motif_size)),
 						min_motif_size,
 						motif_size_label,
 						count_type,
