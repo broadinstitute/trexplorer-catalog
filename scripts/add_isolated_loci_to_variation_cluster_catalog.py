@@ -96,14 +96,14 @@ def main():
 	print(f"Parsed {counter['variation_clusters']:,d} variation clusters from {args.input_variation_clusters_bed_path}")
 
 	all_catalog_ids = set()
-	for record in get_variant_catalog_iterator(args.input_repeat_catalog, show_progress_bar=args.show_progress_bar):
+	for record_i, record in enumerate(get_variant_catalog_iterator(args.input_repeat_catalog, show_progress_bar=args.show_progress_bar)):
 		counter["TRs_from_catalog"] += 1
 		all_catalog_ids.add(record["LocusId"])
 
 		if record["LocusId"] in locus_ids_in_variation_clusters:
 			counter["TRs_in_variation_clusters"] += 1
 			continue
-		output_row = convert_expansion_hunter_record_to_trgt_row(record)
+		output_row = convert_expansion_hunter_record_to_trgt_row(record_i, record)
 		output_bed_file.write("\t".join(map(str, output_row)) + "\n")
 		counter['output_total'] += 1
 		counter['isolated_TRs'] += 1
