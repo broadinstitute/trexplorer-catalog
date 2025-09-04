@@ -20,14 +20,47 @@ from str_analysis.utils.misc_utils import parse_interval
 from str_analysis.utils.eh_catalog_utils import parse_motifs_from_locus_structure
 """
 Expected columns in lps table:
-'TRID', 'longestPureSegmentMotif', 'N_motif', '0thPercentile',
-       '1stPercentile', '5thPercentile', '10thPercentile', '15thPercentile',
-       '20thPercentile', '25thPercentile', '30thPercentile', '35thPercentile',
-       '40thPercentile', '45thPercentile', '50thPercentile', '55thPercentile',
-       '60thPercentile', '65thPercentile', '70thPercentile', '75thPercentile',
-       '80thPercentile', '85thPercentile', '90thPercentile', '95thPercentile',
-       '99thPercentile', '99.9thPercentile', '100thPercentile', 'MAD', 'Mean',
-       'Stdev'
+
+$1                       TRID : 1-49834-49853-AAAC
+$2    longestPureSegmentMotif : AAAC
+$3                    N_motif : 2018.0
+$4              0thPercentile : 4.0
+$5              1stPercentile : 8.0
+$6              5thPercentile : 12.0
+$7             10thPercentile : 12.0
+$8             15thPercentile : 12.0
+$9             20thPercentile : 12.0
+$10            25thPercentile : 12.0
+$11            30thPercentile : 12.0
+$12            35thPercentile : 16.0
+$13            40thPercentile : 16.0
+$14            45thPercentile : 16.0
+$15            50thPercentile : 16.0
+$16            55thPercentile : 16.0
+$17            60thPercentile : 16.0
+$18            65thPercentile : 16.0
+$19            70thPercentile : 16.0
+$20            75thPercentile : 16.0
+$21            80thPercentile : 16.0
+$22            85thPercentile : 16.0
+$23            90thPercentile : 16.0
+$24            95thPercentile : 16.0
+$25            99thPercentile : 16.0
+$26          99.9thPercentile : 16.0
+$27           100thPercentile : 16.0
+$28                       MAD : 0.0
+$29                      Mean : 14.545094152626362
+$30                     Stdev : 0.5168253213498479
+$31                      Mode : 4.0
+$32                     TRID2 : 1-49834-49853-AAAC
+$33                     motif : AAAC
+$34           canonical_motif : AAAC
+$35                numAlleles : 27
+$36          numCalledAlleles : 2020
+$37          combinedLPSStdev : 2.068555633665116
+$38  expectedCombinedLPSStdev : 1.226411599717534
+$39                    OE_len : 1.6349040027446389
+$40         OE_len_percentile : 0.9381970214187625
 """
 
 def main():
@@ -38,11 +71,11 @@ def main():
 	parser.add_argument("--show-progress-bar", action="store_true", help="Show a progress bar")
 	parser.add_argument("--output-catalog-json-path",
 						help="Path of the output catalog JSON file that includes variation cluster annotations")
-	parser.add_argument("lps_table", help="Path of the LPS data table", default="HPRC_100_LongestPureSegmentQuantiles.txt.gz")
+	parser.add_argument("aou1027_table", help="Path of the LPS data table", default="HPRC_100_LongestPureSegmentQuantiles.txt.gz")
 	parser.add_argument("catalog_json_path", help="Path of the JSON catalog to annotate")
 	args = parser.parse_args()
 
-	for path in args.lps_table, args.catalog_json_path, args.known_pathogenic_loci_json_path:
+	for path in args.aou1027_table, args.catalog_json_path, args.known_pathogenic_loci_json_path:
 		if not os.path.isfile(path):
 			parser.error(f"{path} file not found")
 
@@ -66,18 +99,16 @@ def main():
 				known_pathogenic_reference_regions_lookup[locus["LocusId"]] = (locus["ReferenceRegion"], motifs[0])
 
 	print(f"Parsed {len(known_pathogenic_reference_regions_lookup)} known pathogenic loci")
-	print(f"Parsing {args.lps_table}")
-	df = pd.read_table(args.lps_table)
+
+	print(f"Parsing {args.aou1027_table}")
+	df = pd.read_table(args.aou1027_table)
 	missing_columns = {"TRID", "longestPureSegmentMotif", "N_motif", "Stdev"} - set(df.columns)
 	if missing_columns:
-		parser.error(f"{args.lps_table} is missing expected columns: {missing_columns}")
+		parser.error(f"{args.aou1027_table} is missing expected columns: {missing_columns}")
 
 	before = len(df)
 	df = df[~df["longestPureSegmentMotif"].isna() & ~df["Stdev"].isna() & ~df["N_motif"].isna()]
 	print(f"Filtered out {before - len(df):,d} out of {before:,d} ({(before - len(df)) / before:.1%}) records with missing values")
-
-	# sum the N_motif column across all rows with the same TRID
-	TRID_to_N_motif_sum_lookup = dict(df.groupby("TRID")["N_motif"].sum())
 
 	annotation_lookup = {}
 	row_iterator = df.iterrows()
@@ -85,28 +116,18 @@ def main():
 		row_iterator = tqdm.tqdm(row_iterator, total=len(df), unit=" records", unit_scale=True)
 		
 	for _, row in row_iterator:
-		TRID = row["TRID"]
+		locus_id = row["TRID2"]
+		motif_size = len(row['longestPureSegmentMotif'])
 		# convert stdev in bp to stdev in repeat units
-		lps_stdev = round(row["Stdev"] / len(row['longestPureSegmentMotif']), 3)
-		motif_fraction_string = f"{row['longestPureSegmentMotif']}: {row['N_motif']}/{TRID_to_N_motif_sum_lookup[TRID]}"
-		for locus_id in TRID.split(","):
-			if locus_id in known_pathogenic_reference_regions_lookup:
-				reference_region, motif = known_pathogenic_reference_regions_lookup[locus_id]
-			else:
-				assert locus_id.count("-") == 3
-				chrom, start_0based, end, motif = locus_id.split("-")
-				reference_region = f"{chrom}:{start_0based}-{end}"
-			
-			if motif != row["longestPureSegmentMotif"]:
-				continue
-				
-			annotation_lookup[locus_id] = {
-				"LPSLengthStdevFromHPRC100": lps_stdev,
-				"LPSMotifFractionFromHPRC100": motif_fraction_string,
-			}
+		annotation_lookup[locus_id] = {
+			"StdevFromAoU1027": round(row["Stdev"] / motif_size, 3),
+			"MedianAlleleFromAoU1027": row["50thPercentile"] // motif_size,
+			"MaxAlleleFromAoU1027": row["100thPercentile"] // motif_size,
+			"NumUniqueAllelesFromAoU1027": int(row["numAlleles"]),
+		}
 
 	input_locus_counter = annotated_locus_counter = 0
-	print(f"Adding LPS annotations to {args.catalog_json_path}")
+	print(f"Adding AoU1027 annotations to {args.catalog_json_path}")
 	fopen = gzip.open if args.catalog_json_path.endswith("gz") else open
 	with fopen(args.catalog_json_path, "rt") as f:
 		f2open = gzip.open if args.output_catalog_json_path.endswith("gz") else open
