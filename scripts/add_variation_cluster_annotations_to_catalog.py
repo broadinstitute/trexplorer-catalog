@@ -20,10 +20,8 @@ def main():
 						"these loci since their IDs don't contain these coordinates the way that IDs of other loci do.")
 	parser.add_argument("--verbose", action="store_true")
 	parser.add_argument("--show-progress-bar", action="store_true", help="Show a progress bar")
-	parser.add_argument("--output-catalog-json-path",
-						help="Path of the output catalog JSON file that includes variation cluster annotations")
-	parser.add_argument("--generate-plot", action="store_true", help="Generate a plot of the size differences between "
-																	 "variation clusters and simple repeats")
+	parser.add_argument("--output-catalog-json-path", help="Path of the output catalog JSON file that includes variation cluster annotations")
+	parser.add_argument("--generate-plot", action="store_true", help="Generate a plot of the size differences between variation clusters and simple repeats")
 	parser.add_argument("variation_clusters_bed_path", help="Path of the variation clusters BED file")
 	parser.add_argument("catalog_json_path", help="Path of the JSON catalog to annotate")
 	args = parser.parse_args()
@@ -81,6 +79,9 @@ def main():
 					continue
 				key, value = key_value
 				info_fields_dict[key] = value
+
+			if "VC" not in info_fields_dict["STRUC"]:
+				continue
 
 			variation_cluster_differs_from_simple_repeat = False
 			region = f"{chrom.replace('chr', '')}:{start_0based}-{end_1based}"
