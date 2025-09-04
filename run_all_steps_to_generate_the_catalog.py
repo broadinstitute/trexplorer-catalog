@@ -432,7 +432,7 @@ EOF
     run(f"trgt validate --genome {args.hg38_reference_fasta}  --repeats {output_prefix}.TRGT.bed", step_number=20)
 
     # Print missing values
-    run(f"python3 {base_dir}/scripts/print_missing_values_percentages_in_json.py  {annotated_catalog_path}", step_number=21)
+    run(f"python3 {base_dir}/scripts/print_missing_values_percentages_in_json_or_tsv.py  {annotated_catalog_path}", step_number=21)
 
     # Perform basic internal consistency checks on the JSON catalog
     run(f"python3 {base_dir}/scripts/validate_catalog.py " +
