@@ -3,7 +3,6 @@
 import argparse
 import gzip
 import json
-from str_analysis.utils.misc_utils import parse_interval
 from str_analysis.utils.eh_catalog_utils import get_variant_catalog_iterator
 
 EXPECTED_KEYS_IN_ANNOTATED_CATALOG = {
@@ -25,6 +24,11 @@ EXPECTED_KEYS_IN_ANNOTATED_CATALOG = {
 	"LeftFlankMappability": float,
 	"FlanksAndLocusMappability": float,
 	"RightFlankMappability": float,
+}
+
+# Define acceptable types for each expected type (allows for type compatibility)
+TYPE_COMPATIBILITY = {
+	float: (int, float),  # int is a narrower type than float
 }
 
 def parse_known_pathogenic_loci(known_pathogenic_loci_json_path):
@@ -86,9 +90,12 @@ def main():
 				if key not in record or record[key] is None:
 					print(f"ERROR: Missing key {key} in record {i}: {record}")
 					error_counter += 1
-				elif not isinstance(record[key], value_type):
-					print(f"ERROR: Expected {key} to be of type {value_type} but got {type(record[key])}")
-					error_counter += 1
+				else:
+					# Get acceptable types for this value_type, defaulting to just the value_type itself
+					acceptable_types = TYPE_COMPATIBILITY.get(value_type, (value_type,))
+					if not isinstance(record[key], acceptable_types):
+						print(f"ERROR: Expected {key} to be of type {value_type} but got {type(record[key])}")
+						error_counter += 1
 
 			for prefix in "Gencode", "Refseq", "Mane":
 				if record[f"{prefix}GeneRegion"] != "intergenic":
