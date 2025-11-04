@@ -122,11 +122,12 @@ start_time = time.time()
 # same motif), then the definition in the catalog that's earlier in the list will take precedence over definitions in
 # subsequent catalogs.
 source_catalogs_in_order = [
-    ("KnownDiseaseAssociatedLoci", "https://raw.githubusercontent.com/broadinstitute/str-analysis/69dd90ecbc1dcbb23d5ca84ab4022850a283114f/str_analysis/variant_catalogs/variant_catalog_without_offtargets.GRCh38.json"),
-    ("Illumina174kPolymorphicTRs", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/illumina_variant_catalog.sorted.bed.gz"),
-    ("PerfectRepeatsInReference", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
-    ("PolymorphicTRsInT2TAssemblies", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
-    ("VamosCatalog", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/vamos_catalog.ori.v2.1.bed.gz"),
+    ("TRExplorerV1:KnownDiseaseAssociatedLoci", "https://raw.githubusercontent.com/broadinstitute/str-analysis/69dd90ecbc1dcbb23d5ca84ab4022850a283114f/str_analysis/variant_catalogs/variant_catalog_without_offtargets.GRCh38.json"),
+    ("TRExplorerV1:Illumina174kPolymorphicTRs", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/illumina_variant_catalog.sorted.bed.gz"),
+    ("TRExplorerV1:PerfectRepeatsInReference", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
+    ("TRExplorerV1:PolymorphicTRsInT2TAssemblies", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
+    ("TRExplorerV2:VamosCatalog", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/vamos_catalog.ori.v2.1.bed.gz"),
+    #("TRExplorerV2:KnownLoci", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/vamos_catalog.ori.v2.1.bed.gz"),
 ]
 
 
@@ -137,17 +138,17 @@ for catalog_name, url in source_catalogs_in_order:
     source_catalog_paths[catalog_name] = os.path.abspath(os.path.basename(url))
 
 # preprocess catalog of known disease-associated loci: split compound definitions
-run(f"python3 -u -m str_analysis.split_adjacent_loci_in_expansion_hunter_catalog {source_catalog_paths['KnownDiseaseAssociatedLoci']}", step_number=0)
-source_catalog_paths['KnownDiseaseAssociatedLoci'] = source_catalog_paths['KnownDiseaseAssociatedLoci'].replace(".json", ".split.json")
+run(f"python3 -u -m str_analysis.split_adjacent_loci_in_expansion_hunter_catalog {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=0)
+source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci'] = source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci'].replace(".json", ".split.json")
 # change motif definition for the RFC1 locus from AARRG => AAAAG since our catalog doesn't currently support IUPAC codes
-run(f"sed -i 's/AARRG/AAAAG/g' {source_catalog_paths['KnownDiseaseAssociatedLoci']}", step_number=0)
-run(f"gzip -f {source_catalog_paths['KnownDiseaseAssociatedLoci']}", step_number=0)
+run(f"sed -i 's/AARRG/AAAAG/g' {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=0)
+run(f"gzip -f {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=0)
 
-source_catalog_paths['KnownDiseaseAssociatedLoci'] += ".gz"
+source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci'] += ".gz"
 
 if not args.dry_run:
         # compute stats for primary disease-associated loci
-        with gzip.open(source_catalog_paths["KnownDiseaseAssociatedLoci"]) as f:
+        with gzip.open(source_catalog_paths["TRExplorerV1:KnownDiseaseAssociatedLoci"]) as f:
             known_disease_associated_loci = json.load(f)
 
         primary_disease_associated_loci = [
@@ -161,7 +162,7 @@ if not args.dry_run:
         # are not currently considered monogenic
         assert len(primary_disease_associated_loci) == 63, f"Expected 63 primary disease-associated loci, found {len(primary_disease_associated_loci)}"
 
-primary_disease_associated_loci_path = source_catalog_paths["KnownDiseaseAssociatedLoci"].replace(
+primary_disease_associated_loci_path = source_catalog_paths["TRExplorerV1:KnownDiseaseAssociatedLoci"].replace(
     ".json.gz", ".primary_disease_associated_loci.json.gz")
 
 if not args.dry_run:
@@ -356,7 +357,7 @@ EOF
         run(f"""python3 {base_dir}/scripts/add_variation_cluster_annotations_to_catalog.py \
             --verbose \
             --output-catalog-json-path {output_prefix}.EH.with_annotations.with_variation_clusters.json.gz \
-            --known-pathogenic-loci-json-path {source_catalog_paths['KnownDiseaseAssociatedLoci']} \
+            --known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} \
             {args.variation_clusters_bed} \
             {annotated_catalog_path}""", step_number=10)
 
@@ -364,7 +365,7 @@ EOF
         run(f"cp {args.variation_clusters_bed} {variation_clusters_release_filename}", step_number=10)
 
         run(f"""python3 {base_dir}/scripts/add_isolated_loci_to_variation_cluster_catalog.py \
-            --known-pathogenic-loci-json-path {source_catalog_paths['KnownDiseaseAssociatedLoci']} \
+            --known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} \
             -o {variation_clusters_and_isolated_TRs_release_filename} \
             {args.variation_clusters_bed} \
             {annotated_catalog_path}""", step_number=11)
@@ -373,10 +374,10 @@ EOF
         release_files.append(variation_clusters_and_isolated_TRs_release_filename)
 
         run(f"python3 {base_dir}/scripts/convert_trgt_catalog_to_longtr_format.py "
-            f"--known-pathogenic-loci-json-path {source_catalog_paths['KnownDiseaseAssociatedLoci']} "
+            f"--known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} "
             f"{variation_clusters_release_filename}", step_number=12)
         run(f"python3 {base_dir}/scripts/convert_trgt_catalog_to_longtr_format.py "
-            f"--known-pathogenic-loci-json-path {source_catalog_paths['KnownDiseaseAssociatedLoci']} "
+            f"--known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} "
             f"{variation_clusters_and_isolated_TRs_release_filename}", step_number=13)
 
         release_files.append(variation_clusters_release_filename.replace(".TRGT.bed.gz", ".LongTR.bed.gz"))
@@ -393,7 +394,7 @@ EOF
     if args.aou1027_annotations:
         run(f"""python3 {base_dir}/scripts/add_AoU_annotations_to_catalog.py \
             --output-catalog-json-path {output_prefix}.EH.with_annotations.with_AoU_annotations.json.gz \
-            --known-pathogenic-loci-json-path {source_catalog_paths['KnownDiseaseAssociatedLoci']} \
+            --known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} \
             {args.aou1027_annotations} \
             {annotated_catalog_path}""", step_number=15)
 
@@ -472,7 +473,7 @@ EOF
 
     # Perform basic internal consistency checks on the JSON catalog
     run(f"python3 {base_dir}/scripts/validate_catalog.py " +
-        f"--known-pathogenic-loci-json-path {source_catalog_paths['KnownDiseaseAssociatedLoci']} " +
+        f"--known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} " +
         ("--check-for-presence-of-annotations --check-for-presence-of-all-known-loci " if motif_size_label == "1_to_1000bp_motifs" else "") +
         f"{annotated_catalog_path}", step_number=24)
 
