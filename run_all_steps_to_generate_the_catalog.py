@@ -326,7 +326,7 @@ for record in ijson.items(f, "item", use_float=True):
         k: v for k, v in record.items() if k in {{"LocusId", "ReferenceRegion", "VariantType", "LocusStructure"}} 
     }}, indent=4))
 out.write("]")
-print(f"Wrote {{i:,d}} out of {{total:,d}} ({{i/total:0.1%}}%) loci to {{output_prefix}}.EH.json.gz") 
+print(f"Wrote {{i:,d}} out of {{total:,d}} ({{i/total:0.1%}}%) loci to {output_prefix}.EH.json.gz") 
 EOF
 """, step_number=8)
 
