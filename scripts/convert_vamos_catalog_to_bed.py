@@ -85,6 +85,24 @@ motif sizes:
   496         1
 """
 
+def run(cmd):
+	print(cmd)
+	os.system(cmd)
+
+# annotate and filter
+cmd = f"python3 -m str_analysis.annotate_and_filter_str_catalog --verbose --show-progress --output-bed "
+cmd += "--reference-fasta ~/hg38.fa "
+cmd += "--min-motif-size 3 "
+cmd += "--min-repeats-in-reference 1 "
+cmd += "--skip-gene-annotations "
+cmd += "--skip-mappability-annotations "
+cmd += "--skip-disease-loci-annotations "
+cmd += "--discard-loci-with-non-ACGT-bases-in-reference "
+cmd += "--discard-loci-with-non-ACGTN-bases-in-motif "
+cmd += "--set-locus-id "
+cmd += f"{output_path_prefix}.bed.gz "
+run(cmd)
+
 # as a sanity check, see how often the motif matches the catalog
 trexplorer_catalog_v1_path = f"results__2024-10-01/release_draft_2024-10-01/repeat_catalog_v1.hg38.1_to_1000bp_motifs.bed.gz"
 print(f"Comparing to TRExplorer v1 catalog: {trexplorer_catalog_v1_path}")
@@ -92,9 +110,8 @@ cmd = f"python3  compare_with_loci_from_other_papers/compare_loci_with_catalog.p
 cmd += f"--catalog-name TRExplorer_v1 "
 cmd += f"--catalog-bed-path {trexplorer_catalog_v1_path} "
 #cmd += f"--write-loci-absent-from-new-catalog "
-cmd += f"{output_path_prefix}.bed.gz"
-print(cmd)
-os.system(cmd)
+cmd += f"{output_path_prefix}.annotated_and_filtered.bed.gz"
+run(cmd)
 
 df = pd.read_table("vamos_catalog.ori.v2.1.overlap_with_TRExplorer_v1.tsv.gz")
 sum(df["overlap_score"] == "same motif")
