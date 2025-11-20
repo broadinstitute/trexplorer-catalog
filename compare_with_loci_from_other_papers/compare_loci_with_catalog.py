@@ -49,10 +49,20 @@ def main():
 
     main_catalog_loci = load_main_catalog_loci(args)
 
+    if not os.path.isfile(args.catalog_bed_path):
+        p.error(f"File not found: {args.catalog_bed_path}")
+    for path in args.new_catalog:
+        if not os.path.isfile(path):
+            p.error(f"File not found: {path}")
+
     for new_catalog_path in args.new_catalog:
         output_tsv = new_catalog_path.replace(".bed", "").replace(".gz", "") + f".overlap_with_{args.catalog_name}.tsv.gz"
         print(f"Comparing {output_tsv}")
-        df = compare_loci(main_catalog_loci, new_catalog_path, main_catalog_name=args.catalog_name, write_loci_absent_from_new_catalog=args.write_loci_absent_from_new_catalog)
+        df = compare_loci(
+            main_catalog_loci,
+            new_catalog_path,
+            main_catalog_name=args.catalog_name,
+            write_loci_absent_from_new_catalog=args.write_loci_absent_from_new_catalog)
         df.to_csv(output_tsv, sep="\t", index=False)
         print(f"Wrote {len(df):,d} rows to {output_tsv}")
 
@@ -120,7 +130,7 @@ def compute_overlap_score(main_catalog_interval, start_0based, end_1based, min_m
         return 2
 
     return 1
-    
+
     
 
 def compare_loci(main_catalog_loci, new_catalog, main_catalog_name="trexplorer", write_loci_absent_from_new_catalog=False):
@@ -131,9 +141,12 @@ def compare_loci(main_catalog_loci, new_catalog, main_catalog_name="trexplorer",
 
     if isinstance(new_catalog, (list, tuple)):
         fields_iterator = new_catalog
-    elif isinstance(new_catalog, str) and os.path.isfile(new_catalog):
-        f = gzip.open(new_catalog, "rt")
-        fields_iterator = (line.strip().split("\t") for line in f)
+    elif isinstance(new_catalog, str):
+        if os.path.isfile(new_catalog):
+            f = gzip.open(new_catalog, "rt")
+            fields_iterator = (line.strip().split("\t") for line in f)
+        else:
+            raise ValueError(f"File not found: {new_catalog}")
     else:
         raise ValueError(f"Invalid new_catalog arg type: {type(new_catalog)}: {new_catalog}")
 
@@ -180,6 +193,7 @@ def compare_loci(main_catalog_loci, new_catalog, main_catalog_name="trexplorer",
             "start_0based": start_0based,
             "end_1based": end_1based,
             "motif": motif,
+            "simplified_motif": simplified_motif,
             "canonical_motif": canonical_motif,
             "reference_repeat_count": (end_1based - start_0based) // len(canonical_motif),
             "reference_region_size": end_1based - start_0based,

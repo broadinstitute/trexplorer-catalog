@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-from pprint import pprint
 
 # source: https://github.com/ChaissonLab/vamos
 version = "v2.1"
@@ -52,13 +51,13 @@ with open(f"{output_path_prefix}.TRGT.bed", "wt") as f:
 		end_1based = row["end_1based"]
 		motif = row["motif1"]
 		locus_id = f"{chrom.replace('chr', '')}-{start_0based}-{end_1based}-{motif}"
-		f.write("\t".join(
-			[chrom, str(start_0based), str(end_1based), f"ID={locus_id};MOTIFS={motif};STRUC=({motif})n"]
-		) + "\n")
+		f.write("\t".join(map(str,
+			[chrom, start_0based, end_1based, f"ID={locus_id};MOTIFS={motif};STRUC=({motif})n"]
+		)) + "\n")
 	# example: chr4  3074876  3074966  ID=HTT,MOTIFS=CAG,CCG;STRUC=(CAG)nCAACAG(CCG)n
 
-os.system(f"bgzip -f {output_path_prefix}.bed.gz")
-os.system(f"tabix -f {output_path_prefix}.bed.gz")
+os.system(f"bgzip -f {output_path_prefix}.TRGT.bed")
+os.system(f"tabix -f {output_path_prefix}.TRGT.bed.gz")
 print(f"Wrote {len(df):,d} records to {output_path_prefix}.TRGT.bed.gz")
 
 
