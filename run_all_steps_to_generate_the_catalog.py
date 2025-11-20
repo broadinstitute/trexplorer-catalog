@@ -49,7 +49,7 @@ def chdir(d):
 parser = argparse.ArgumentParser()
 parser.add_argument("--hg38-reference-fasta", default="hg38.fa", help="Path of hg38 reference genome FASTA file")
 parser.add_argument("--gencode-gtf", default="gencode.v46.basic.annotation.gtf.gz", help="Gene annotations GTF file")
-parser.add_argument("--output-prefix", default="repeat_catalog_v1.hg38")
+parser.add_argument("--output-prefix", default="repeat_catalog_v2.hg38")
 parser.add_argument("--only-step", type=int, help="Only run this one step")
 parser.add_argument("--start-with-step", type=int, help="Start with a specific step number")
 parser.add_argument("--end-with-step", type=int, help="End with a specific step number")
@@ -130,7 +130,6 @@ source_catalogs_in_order = [
     #("TRExplorerV2:KnownLoci", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/vamos_catalog.ori.v2.1.bed.gz"),
 ]
 
-
 source_catalog_paths = {}
 for catalog_name, url in source_catalogs_in_order:
     if not os.path.isfile(os.path.basename(url)):
@@ -195,7 +194,6 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
     if (args.start_with_step and args.start_with_step > 2) and motif_size_label != "1_to_1000bp_motifs":
         continue
 
-
     print("="*200)
     chdir(working_dir)
     run(f"mkdir -p {motif_size_label}")
@@ -216,11 +214,10 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         filtered_catalog_path = os.path.abspath(os.path.basename(filtered_catalog_path))
         filtered_source_catalog_paths[catalog_name] = filtered_catalog_path
 
-
         if "vamos" in catalog_name.lower():
-            extra_args = f"--min-interval-size-bp 3 --min-motif-size 3 "
+            extra_args = f"--min-motif-size 3 --min-repeats-in-reference 1 "
         else:
-            extra_args = f"--min-interval-size-bp 1 --min-motif-size {min_motif_size} "
+            extra_args = f"--min-motif-size {min_motif_size} "
 
         run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog \
             --verbose \
@@ -256,6 +253,7 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --add-found-in-fields \
         --output-format JSON \
         --discard-extra-fields-from-input-catalogs \
+        --overlap-fraction 0.66 \
         --overlapping-loci-action keep-first \
         --write-merge-stats-tsv \
         --write-outer-join-table \
@@ -287,7 +285,8 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --write-merge-stats-tsv \
         --write-outer-join-table \
         --write-bed-files-with-unique-loci \
-        --max-size-difference 2.0 \
+        --overlap-fraction 0.66 \
+        --min-jaccard-similarity 0.66 \
         --outer-join-overlap-table-min-sources 1 \
         --output-prefix {output_prefix}.merged2 \
         {source_catalog_paths_for_merge_command2}""", step_number=6)
@@ -312,18 +311,22 @@ import gzip, ijson, json
 f = gzip.open("{annotated_catalog_path}", "rt")
 out = gzip.open("{output_prefix}.EH.json.gz", "wt")
 i = 0
+total = 0
 out.write("[")
 for record in ijson.items(f, "item", use_float=True):
+    total += 1
     # skip chrM loci because ExpansionHunter prints an error like: 'Unable to extract chrM:-793-207 from hg38.fa'
     is_chrM = record["LocusId"].startswith("M-") or record["LocusId"].startswith("chrM-")
     if is_chrM: print(f"Skipping chrM locus: {{record['LocusId']}}")
     if is_chrM: continue
+    if record["NsInFlanks"] > 5: continue
     if i > 0: out.write(", ")
     i += 1
     out.write(json.dumps({{ 
         k: v for k, v in record.items() if k in {{"LocusId", "ReferenceRegion", "VariantType", "LocusStructure"}} 
     }}, indent=4))
 out.write("]")
+print(f"Wrote {{i:,d}} out of {{total:,d}} ({{i/total:0.1%}}%) loci to {{output_prefix}}.EH.json.gz") 
 EOF
 """, step_number=8)
 
