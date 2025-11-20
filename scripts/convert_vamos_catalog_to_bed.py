@@ -93,6 +93,7 @@ cmd += f"--catalog-name TRExplorer_v1 "
 cmd += f"--catalog-bed-path {trexplorer_catalog_v1_path} "
 #cmd += f"--write-loci-absent-from-new-catalog "
 cmd += f"{output_path_prefix}.bed.gz"
+print(cmd)
 os.system(cmd)
 
 df = pd.read_table("vamos_catalog.ori.v2.1.overlap_with_TRExplorer_v1.tsv.gz")
