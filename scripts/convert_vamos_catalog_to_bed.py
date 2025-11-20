@@ -23,6 +23,7 @@ header = [
 url = f"https://zenodo.org/records/11625069/files/vamos.motif.hg38.{version}.orig.tsv.gz?download=1"
 output_path_prefix = f"vamos_catalog.ori.{version}"
 
+print(f"Downloading {url}")
 df = pd.read_table(url, compression="gzip", names=header)
 df["start_0based"] = df["start_1based"] - 1
 df["locus_size"] = df["end_1based"] - df["start_0based"]
@@ -31,13 +32,35 @@ df["motif1"] = df["motifs"].str.split(",").str[0]
 #df["is_coding"] = df["is_coding"] == "coding"
 #df["segdup"] = df["segdup"] == "segDup"
 
-df.to_csv(f"{output_path_prefix}.tsv.gz", sep="\t", index=False, header=True)
 
+# save as TSV
+df.to_csv(f"{output_path_prefix}.tsv.gz", sep="\t", index=False, header=True)
+print(f"Wrote {len(df):,d} records to {output_path_prefix}.tsv.gz")
+
+# save as BED
 df = df[["chrom", "start_0based", "end_1based", "motif1", "motif_size"]]
 df.to_csv(f"{output_path_prefix}.bed", sep="\t", index=False, header=False)
 os.system(f"bgzip -f {output_path_prefix}.bed")
 os.system(f"tabix -f {output_path_prefix}.bed.gz")
 print(f"Wrote {len(df):,d} loci to {output_path_prefix}.bed.gz")
+
+# save as TRGT catalog format
+with open(f"{output_path_prefix}.TRGT.bed", "wt") as f:
+	for _, row in df.iterrows():
+		chrom = row["chrom"]
+		start_0based = row["start_0based"]
+		end_1based = row["end_1based"]
+		motif = row["motif1"]
+		locus_id = f"{chrom.replace('chr', '')}-{start_0based}-{end_1based}-{motif}"
+		f.write("\t".join(
+			[chrom, str(start_0based), str(end_1based), f"ID={locus_id};MOTIFS={motif};STRUC=({motif})n"]
+		) + "\n")
+	# example: chr4  3074876  3074966  ID=HTT,MOTIFS=CAG,CCG;STRUC=(CAG)nCAACAG(CCG)n
+
+os.system(f"bgzip -f {output_path_prefix}.bed.gz")
+os.system(f"tabix -f {output_path_prefix}.bed.gz")
+print(f"Wrote {len(df):,d} records to {output_path_prefix}.TRGT.bed.gz")
+
 
 notes = """Notes: 
 len(df) == 1,175,953
@@ -61,7 +84,17 @@ motif sizes:
   492		  2
   494         1
   496         1
-
 """
 
-pprint(df.iloc[0])
+# as a sanity check, see how often the motif matches the catalog
+trexplorer_catalog_v1_path = f"results__2024-10-01/release_draft_2024-10-01/repeat_catalog_v1.hg38.1_to_1000bp_motifs.bed.gz"
+print(f"Comparing to TRExplorer v1 catalog: {trexplorer_catalog_v1_path}")
+cmd = f"python3  compare_with_loci_from_other_papers/compare_loci_with_catalog.py "
+cmd += f"--catalog-name TRExplorer_v1 "
+cmd += f"--catalog-bed-path {trexplorer_catalog_v1_path} "
+#cmd += f"--write-loci-absent-from-new-catalog "
+cmd += f"{output_path_prefix}.bed.gz"
+os.system(cmd)
+
+df = pd.read_table("vamos_catalog.ori.v2.1.overlap_with_TRExplorer_v1.tsv.gz")
+sum(df["overlap_score"] == "same motif")
