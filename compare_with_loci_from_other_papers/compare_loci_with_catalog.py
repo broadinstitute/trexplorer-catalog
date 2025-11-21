@@ -6,9 +6,11 @@ import argparse
 import collections
 import intervaltree
 import gzip
+import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import re
+import seaborn as sns
 import tqdm
 
 from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
@@ -42,6 +44,7 @@ def main():
     p.add_argument("-n", type=int, help="Number of loci to process")
     p.add_argument("--print-stats", type=int, default=1, choices=[0, 1, 2, 3],
                    help="At the end, output some stats at this level of detail. The higher the number, the more detailed the stats")
+    p.add_argument("--skip-plots", action="store_true", help="Skip generating plots")
     p.add_argument("--write-loci-absent-from-new-catalog", action="store_true",
                    help="When generating the output table, include loci that are absent from the new catalog")
     p.add_argument("--catalog-bed-path",
@@ -100,66 +103,190 @@ def main():
             print_stats(args, main_catalog_loci, df, new_catalog_name=new_catalog_name)
 
 def print_stats(args, main_catalog_loci, df, new_catalog_name):
-        # print some stats
-        if args.print_stats >= 1:
-            print("Summary:")
-            for key, count in sorted(df["match_found?"].value_counts().items(), reverse=True):
-                print(f"{count:10,d}  {key}")
+    # print some stats
+    total_count = collections.Counter()
+    main_catalog_motif_size_distribution = collections.Counter()
+    main_catalog_reference_repeat_count_distribution = collections.Counter()
+    for _, tree in main_catalog_loci.items():
+        for interval in tree:
+            total_count["TRs"] += 1
+            canonical_motif = interval.data  # this motif was simplified before computing the canonical motif
+            main_catalog_motif_size_distribution[len(canonical_motif)] += 1
+            reference_repeat_count = (interval.end - interval.begin) // len(canonical_motif)
+            main_catalog_reference_repeat_count_distribution[reference_repeat_count] += 1
+            if len(canonical_motif) <= 6:
+                total_count["STRs"] += 1
+            else:
+                total_count["VNTRs"] += 1
+            
 
-            total_count = collections.Counter()
-            for _, tree in main_catalog_loci.items():
-                for interval in tree:
-                    total_count["TRs"] += 1
-                    canonical_motif = interval.data  # this motif was simplified before computing the canonical motif
-                    if len(canonical_motif) <= 6:
-                        total_count["STRs"] += 1
-                    else:
-                        total_count["VNTRs"] += 1
+    if args.print_stats >= 1:
+        print("Summary:")
+        for key, count in sorted(df["match_found?"].value_counts().items(), reverse=True):
+            print(f"{count:10,d}  {key}")
 
-            for locus_type in "TRs", "STRs", "VNTRs":
-                if locus_type == "TRs":
-                    current_df = df
-                elif locus_type == "STRs":
-                    current_df = df[df[f"{new_catalog_name}_canonical_motif"].str.len() <= 6]  # this motif was simplified before computing the canonical motif
-                elif locus_type == "VNTRs":
-                    current_df = df[df[f"{new_catalog_name}_canonical_motif"].str.len() > 6]  # this motif was simplified before computing the canonical motif
-                else:
-                    raise ValueError(f"Unknown locus type: {locus_type}")
+        for locus_type in "TRs", "STRs", "VNTRs":
+            if locus_type == "TRs":
+                current_df = df
+            elif locus_type == "STRs":
+                current_df = df[df[f"{new_catalog_name}_canonical_motif"].str.len() <= 6]  # this motif was simplified before computing the canonical motif
+            elif locus_type == "VNTRs":
+                current_df = df[df[f"{new_catalog_name}_canonical_motif"].str.len() > 6]  # this motif was simplified before computing the canonical motif
+            else:
+                raise ValueError(f"Unknown locus type: {locus_type}")
 
-                if len(current_df) == 0 or total_count[locus_type] == 0:
-                    continue
+            if len(current_df) == 0 or total_count[locus_type] == 0:
+                continue
 
-                print("---")
-                print(f"Summary of {locus_type}:")
-                yes_captured_count = sum(current_df["match_found?"].str.startswith("yes "))
-                sort_of_captured_count = sum(current_df["match_found?"].str.startswith("sort of "))
-                not_captured_count = sum(current_df["match_found?"].str.startswith("no "))
+            print("---")
+            print(f"Summary of {locus_type}:")
+            yes_captured_count = sum(current_df["match_found?"].str.startswith("yes "))
+            sort_of_captured_count = sum(current_df["match_found?"].str.startswith("sort of "))
+            not_captured_count = sum(current_df["match_found?"].str.startswith("no "))
 
-                margin = 4
-                print(" "*margin, f"{yes_captured_count:10,d} of {new_catalog_name} {locus_type} are captured by {args.catalog_name}")
-                print(" "*margin, f"{sort_of_captured_count:10,d} of additional {new_catalog_name} {locus_type} are sort of captured by {args.catalog_name}")
-                print(" "*margin, f"{not_captured_count:10,d} of {new_catalog_name} {locus_type} are not in {args.catalog_name}")
-                print(" "*margin, f"{len(current_df):10,d} total {locus_type} in {new_catalog_name}")
-                print(" "*margin, f"{total_count[locus_type]:10,d} total {locus_type} in {args.catalog_name}")
-                if locus_type != "TRs":
-                    print(" "*margin, f"{total_count['TRs']:10,d} total TRs in {args.catalog_name}")
-                print(" "*margin, f"{yes_captured_count/len(current_df):10.2f} recall            ( = {yes_captured_count:,d}/{len(current_df):,d} = fraction of {new_catalog_name} {locus_type} captured by {args.catalog_name})")
-                print(" "*margin, f"{yes_captured_count/total_count[locus_type]:10.2e} precision         ( = {yes_captured_count:,d}/{total_count[locus_type]:,d} = {new_catalog_name} {locus_type} captured by {args.catalog_name} divided by total {locus_type} in {args.catalog_name})")
-                print(" "*margin, f"{(yes_captured_count + sort_of_captured_count)/len(current_df):10.2f} sort of recall    ( = {yes_captured_count + sort_of_captured_count:,d}/{len(current_df):,d} = fraction of {new_catalog_name} {locus_type} sort of captured by {args.catalog_name})")
-                print(" "*margin, f"{(yes_captured_count + sort_of_captured_count)/total_count[locus_type]:10.2e} sort of precision ( = {yes_captured_count + sort_of_captured_count:,d}/{total_count[locus_type]:,d} = {new_catalog_name} {locus_type} sort of captured by {args.catalog_name} divided by total {locus_type} in {args.catalog_name})")
+            margin = 4
+            print(" "*margin, f"{yes_captured_count:10,d} of {new_catalog_name} {locus_type} are captured by {args.catalog_name}")
+            print(" "*margin, f"{sort_of_captured_count:10,d} of additional {new_catalog_name} {locus_type} are sort of captured by {args.catalog_name}")
+            print(" "*margin, f"{not_captured_count:10,d} of {new_catalog_name} {locus_type} are not in {args.catalog_name}")
+            print(" "*margin, f"{len(current_df):10,d} total {locus_type} in {new_catalog_name}")
+            print(" "*margin, f"{total_count[locus_type]:10,d} total {locus_type} in {args.catalog_name}")
+            if locus_type != "TRs":
+                print(" "*margin, f"{total_count['TRs']:10,d} total TRs in {args.catalog_name}")
+            print(" "*margin, f"{yes_captured_count/len(current_df):10.2f} recall            ( = {yes_captured_count:,d}/{len(current_df):,d} = fraction of {new_catalog_name} {locus_type} captured by {args.catalog_name})")
+            print(" "*margin, f"{yes_captured_count/total_count[locus_type]:10.2e} precision         ( = {yes_captured_count:,d}/{total_count[locus_type]:,d} = {new_catalog_name} {locus_type} captured by {args.catalog_name} divided by total {locus_type} in {args.catalog_name})")
+            print(" "*margin, f"{(yes_captured_count + sort_of_captured_count)/len(current_df):10.2f} sort of recall    ( = {yes_captured_count + sort_of_captured_count:,d}/{len(current_df):,d} = fraction of {new_catalog_name} {locus_type} sort of captured by {args.catalog_name})")
+            print(" "*margin, f"{(yes_captured_count + sort_of_captured_count)/total_count[locus_type]:10.2e} sort of precision ( = {yes_captured_count + sort_of_captured_count:,d}/{total_count[locus_type]:,d} = {new_catalog_name} {locus_type} sort of captured by {args.catalog_name} divided by total {locus_type} in {args.catalog_name})")
 
-        if args.print_stats >= 2:
-            print()
-            print("Details:")
-            for (overlap_score, motif_match_score), group_df in sorted(df.groupby(["overlap_score", "motif_match_score"]), reverse=True):
-                print(f"{len(group_df):10,d} loci:   {OVERLAP_SCORE_MAP[overlap_score]:<40}    {MOTIF_MATCH_SCORE_MAP[motif_match_score]:<20}")
+    if args.print_stats >= 2:
+        print()
+        print("Details:")
+        for (overlap_score, motif_match_score), group_df in sorted(df.groupby(["overlap_score", "motif_match_score"]), reverse=True):
+            print(f"{len(group_df):10,d} loci:   {OVERLAP_SCORE_MAP[overlap_score]:<40}    {MOTIF_MATCH_SCORE_MAP[motif_match_score]:<20}")
 
-        if args.print_stats >= 3:
-            print()
-            print(f"All loci in {new_catalog_name}:")
-            for _, row in df[df[f"{new_catalog_name}_reference_region"].notna()].iterrows():
-                print(" "*8, "\t".join(map(str, [row[f"{new_catalog_name}_reference_region"], row["match_found?"]])))
+    if args.print_stats >= 3:
+        print()
+        print(f"All loci in {new_catalog_name}:")
+        for _, row in df[df[f"{new_catalog_name}_reference_region"].notna()].iterrows():
+            print(" "*8, "\t".join(map(str, [row[f"{new_catalog_name}_reference_region"], row["match_found?"]])))
 
+    if args.skip_plots:
+        return
+    
+
+    df1 = df[df[f"{new_catalog_name}_canonical_motif"].notna()]
+    new_catalog_motif_size_distribution = collections.Counter(df1[f"{new_catalog_name}_canonical_motif"].str.len())    
+    new_catalog_motif_size_distribution2 = collections.Counter(df1[df1["overlap_score"] == 0][f"{new_catalog_name}_canonical_motif"].str.len())    
+    for catalog_name, motif_size_distribution in [
+        (args.catalog_name, main_catalog_motif_size_distribution),
+        (new_catalog_name, new_catalog_motif_size_distribution),
+        (f"{new_catalog_name}_loci_missing_from_{args.catalog_name}", new_catalog_motif_size_distribution2),
+    ]:
+        # bin values between 7 and 24 as "7-24" and 25+ as "25+"
+        motif_size_distribution_binned = {f"{motif_size}bp": 0 for motif_size in range(1, 25)}
+        motif_size_distribution_binned["25+"] = 0
+        for motif_size, count in motif_size_distribution.items():
+            if motif_size < 25:
+                motif_size_distribution_binned[f"{motif_size}bp"] += count
+            else:
+                motif_size_distribution_binned["25+"] += count
+        motif_size_distribution = motif_size_distribution_binned
+
+        catalog_name = catalog_name.replace(" ", "_")
+        plt.figure(figsize=(12, 6))
+        sns.barplot(x=list(motif_size_distribution.keys()), y=list(motif_size_distribution.values()), color="cornflowerblue")
+        # turn the x labels 45 degrees
+        plt.xticks(rotation=45)
+        plt.xlabel("Motif size")
+        plt.ylabel("Count")
+        # add , separators to y-axis labels
+        plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+        plt.title(f"{catalog_name} motif size distribution")
+        plt.savefig(f"{catalog_name}.motif_size_distribution.png")
+        print(f"Wrote motif size distribution to {catalog_name}.motif_size_distribution.png")
+        plt.close()
+
+    df2 = df[df[f"{new_catalog_name}_reference_repeat_count"].notna()]
+    new_catalog_reference_repeat_count_distribution = collections.Counter(df2[f"{new_catalog_name}_reference_repeat_count"])
+    new_catalog_reference_repeat_count_distribution2 = collections.Counter(df2[df2["overlap_score"] == 0][f"{new_catalog_name}_reference_repeat_count"])
+    for catalog_name, reference_repeat_count_distribution in [
+        (args.catalog_name, main_catalog_reference_repeat_count_distribution),
+        (new_catalog_name, new_catalog_reference_repeat_count_distribution),
+        (f"{new_catalog_name}_loci_missing_from_{args.catalog_name}", new_catalog_reference_repeat_count_distribution2),
+    ]:
+        # bin values between 1 and 10 as "1-10" and 11+ as "11+"
+        reference_repeat_count_distribution_binned = {f"{repeat_count}x": 0 for repeat_count in range(0, 11)}
+        reference_repeat_count_distribution_binned["11+"] = 0
+        for repeat_count, count in reference_repeat_count_distribution.items():
+            if repeat_count < 11:
+                reference_repeat_count_distribution_binned[f"{repeat_count}x"] += count
+            else:
+                reference_repeat_count_distribution_binned["11+"] += count
+        reference_repeat_count_distribution = reference_repeat_count_distribution_binned
+
+        catalog_name = catalog_name.replace(" ", "_")
+        plt.figure(figsize=(12, 6))
+        sns.barplot(x=list(reference_repeat_count_distribution.keys()), y=list(reference_repeat_count_distribution.values()), color="cornflowerblue")
+        # turn the x labels 45 degrees
+        plt.xticks(rotation=45)
+        plt.xlabel("Reference repeat count")
+        plt.ylabel("Count")
+        plt.title(f"{catalog_name} reference repeat count distribution")
+        # add , separators to y-axis labels
+        plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+        plt.savefig(f"{catalog_name}.reference_repeat_count_distribution.png")
+        print(f"Wrote reference repeat count distribution to {catalog_name}.reference_repeat_count_distribution.png")
+        plt.close()
+
+    # horizontal bar plot of the values in the 'overlap' column with color by 'motif_match' column
+    plt.figure(figsize=(12, 6))
+    y_axis_order = list(OVERLAP_SCORE_MAP.values())
+    if sum(df["overlap_score"] < 0)/len(df) > 0.5:
+        y_axis_order_without_absent = y_axis_order[:-1]
+    elif sum(df["overlap_score"] < 1)/len(df) > 0.5:
+        y_axis_order_without_absent = y_axis_order[:-2]
+    
+
+    alpha = 0.5
+    motif_match_colors = {
+        "same motif": (0.0, 0.7, 0.0, alpha),  # green 
+        "same motif length": (0.95, 0.8, 0.1, alpha),  # yellow 
+        "different motif length": (0.9, 0.0, 0.0, alpha),  # red 
+        f"absent from {args.catalog_name} catalog": (0.0, 0.0, 0.7, alpha),  #  blue 
+        f"only in {args.catalog_name} catalog": (0.0, 0.0, 0.7, alpha),  #  blue
+    }
+
+    # use stacked bar plot to plot the values in the 'overlap' column with color by 'motif_match' column
+    plot_data = df.groupby("overlap")["motif_match"].value_counts().reset_index(name="count")
+    plot_data_pivot = plot_data.pivot(index="overlap", columns="motif_match", values="count")
+    plot_data_pivot = plot_data_pivot.reindex(y_axis_order_without_absent[::-1]).fillna(0)
+    # reorder columns to match legend order
+    desired_order = list(MOTIF_MATCH_SCORE_MAP.values())
+    plot_data_pivot = plot_data_pivot[[col for col in desired_order[::-1] if col in plot_data_pivot.columns]]
+    colors = [motif_match_colors.get(col, (0.5, 0.5, 0.5, alpha)) for col in plot_data_pivot.columns]
+    ax = plot_data_pivot.plot(kind="barh", stacked=True, color=colors, ax=plt.gca())
+    # make bars thicker
+    for patch in ax.patches:
+        patch.set_height(patch.get_height() * 1.5)
+    plt.title(f"Does {args.catalog_name} capture TR loci from {new_catalog_name}?")
+    plt.xlabel("# of TR loci")
+    # shift the plot to the right by 10% of the width of the plot
+    plt.gca().set_position([0.22, 0.1, 0.75, 0.8])
+
+    plt.gca().grid(axis="x", linestyle="-", linewidth=0.5, color="lightgray")
+    
+    # sort colors by motif_match_score
+    handles, labels = plt.gca().get_legend_handles_labels()
+    handle_label_map = dict(zip(labels, handles))
+    ordered_handles = [handle_label_map[label] for label in desired_order if label in handle_label_map]
+    ordered_labels = [label for label in desired_order if label in handle_label_map]
+    
+    plt.legend(ordered_handles, ordered_labels, title="", frameon=True)
+    plt.gca().set_ylabel("")
+    plt.gca().spines["top"].set_visible(False)
+    plt.gca().spines["right"].set_visible(False)
+    plt.savefig("overlap_distribution_by_motif_match.png")
+    print(f"Wrote overlap distribution by motif match to overlap_distribution_by_motif_match.png")
+    plt.close()
 
 def load_main_catalog_loci(args):   
     print(f"Parsing {args.catalog_bed_path} to interval tree")
@@ -177,7 +304,7 @@ def load_main_catalog_loci(args):
             motif = fields[3]
             simplified_motif, _, _ = find_repeat_unit_without_allowing_interruptions(motif, allow_partial_repeats=False)
             canonical_motif = compute_canonical_motif(simplified_motif)
-            main_catalog_loci[chrom].add(intervaltree.Interval(start, end, data=canonical_motif))
+            main_catalog_loci[chrom].add(intervaltree.Interval(start, max(start+1, end), data=canonical_motif))
 
     return main_catalog_loci
 
@@ -251,6 +378,7 @@ def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, m
         was_match_found = NO_MATCH_FOUND
 
     return was_match_found
+
 
 def compare_loci(
         main_catalog_loci,
