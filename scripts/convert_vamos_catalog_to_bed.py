@@ -107,10 +107,9 @@ run(cmd)
 trexplorer_catalog_v1_path = f"results__2024-10-01/release_draft_2024-10-01/repeat_catalog_v1.hg38.1_to_1000bp_motifs.bed.gz"
 print(f"Comparing to TRExplorer v1 catalog: {trexplorer_catalog_v1_path}")
 cmd = f"python3  compare_with_loci_from_other_papers/compare_loci_with_catalog.py "
-cmd += f"--catalog-name TRExplorer_v1 "
-cmd += f"--catalog-bed-path {trexplorer_catalog_v1_path} "
+cmd += f"--catalog-bed-path TRExplorer_v1:{trexplorer_catalog_v1_path} "
 #cmd += f"--write-loci-absent-from-new-catalog "
-cmd += f"{output_path_prefix}.annotated_and_filtered.bed.gz"
+cmd += f"Vamos_v2_1:{output_path_prefix}.annotated_and_filtered.bed.gz"
 run(cmd)
 
 df = pd.read_table("vamos_catalog.ori.v2.1.overlap_with_TRExplorer_v1.tsv.gz")
