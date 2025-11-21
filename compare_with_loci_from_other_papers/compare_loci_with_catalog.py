@@ -233,8 +233,8 @@ def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, m
     high_motif_similarity = (motif_match_score == 3 or (len(new_catalog_motif) > 6 and motif_match_score == 2))
 
     if main_catalog_motif is not None and not high_motif_similarity:
-        different_motifs_description = f", different motifs"
-        different_motifs_description += f" ({len(main_catalog_motif)}bp in {main_catalog_name} vs {len(new_catalog_motif)}bp)"
+        #different_motifs_description = f"different motifs, "
+        different_motifs_description = f"{len(main_catalog_motif)}bp motif in {main_catalog_name} instead of {len(new_catalog_motif)}bp, "
     else:
         different_motifs_description = ""
 
@@ -242,11 +242,11 @@ def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, m
         was_match_found = "yes (Jaccard > 0.66 and similar motifs)"
     elif medium_or_high_overlap_score:
         if high_overlap_score:
-            was_match_found = f"sort of (Jaccard > 0.66{different_motifs_description})"
+            was_match_found = f"sort of ({different_motifs_description}Jaccard > 0.66)"
         else:
-            was_match_found = f"sort of (0.2 > Jaccard <= 0.66{different_motifs_description})"
+            was_match_found = f"sort of ({different_motifs_description}0.2 > Jaccard <= 0.66)"
     elif overlap_score > 0 and motif_match_score > 0:
-        was_match_found = f"no (Jaccard <= 0.2{different_motifs_description})"
+        was_match_found = f"no ({different_motifs_description}Jaccard <= 0.2)"
     else:
         was_match_found = NO_MATCH_FOUND
 
