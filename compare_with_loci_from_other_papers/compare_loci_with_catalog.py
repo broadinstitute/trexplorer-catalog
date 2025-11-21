@@ -200,7 +200,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
         plt.ylabel("Count")
         # add , separators to y-axis labels
         plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
-        plt.title(f"{catalog_name} motif size distribution")
+        plt.title(f"{catalog_name.replace('_', ' ')} motif size distribution")
         plt.savefig(f"{catalog_name}.motif_size_distribution.png")
         print(f"Wrote motif size distribution to {catalog_name}.motif_size_distribution.png")
         plt.close()
@@ -230,7 +230,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
         plt.xticks(rotation=45)
         plt.xlabel("Reference repeat count")
         plt.ylabel("Count")
-        plt.title(f"{catalog_name} reference repeat count distribution")
+        plt.title(f"{catalog_name.replace('_', ' ')} reference repeat count distribution")
         # add , separators to y-axis labels
         plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
         plt.savefig(f"{catalog_name}.reference_repeat_count_distribution.png")
@@ -284,8 +284,9 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
     plt.gca().set_ylabel("")
     plt.gca().spines["top"].set_visible(False)
     plt.gca().spines["right"].set_visible(False)
-    plt.savefig("overlap_distribution_by_motif_match.png")
-    print(f"Wrote overlap distribution by motif match to overlap_distribution_by_motif_match.png")
+    output_path = f"{new_catalog_name}.vs.{args.catalog_name}.overlap_distribution_by_motif_match.png"
+    plt.savefig(output_path)
+    print(f"Wrote overlap distribution by motif match to {output_path}")
     plt.close()
 
 def load_main_catalog_loci(args):   
