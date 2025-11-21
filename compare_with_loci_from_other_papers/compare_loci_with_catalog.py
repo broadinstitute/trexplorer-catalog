@@ -148,10 +148,6 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
                 print(" "*margin, f"{(yes_captured_count + sort_of_captured_count)/len(current_df):10.2f} sort of recall    ( = {yes_captured_count + sort_of_captured_count:,d}/{len(current_df):,d} = fraction of {new_catalog_name} {locus_type} sort of captured by {args.catalog_name})")
                 print(" "*margin, f"{(yes_captured_count + sort_of_captured_count)/total_count[locus_type]:10.2e} sort of precision ( = {yes_captured_count + sort_of_captured_count:,d}/{total_count[locus_type]:,d} = {new_catalog_name} {locus_type} sort of captured by {args.catalog_name} divided by total {locus_type} in {args.catalog_name})")
 
-
-
-
-
         if args.print_stats >= 2:
             print()
             print("Details:")
@@ -230,7 +226,31 @@ def compute_overlap_score(main_catalog_interval, start_0based, end_1based, min_m
 
     return 1
 
-    
+
+def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, main_catalog_motif, main_catalog_name=None):
+    high_overlap_score = overlap_score >= 5
+    medium_or_high_overlap_score = overlap_score >= 2
+    high_motif_similarity = (motif_match_score == 3 or (len(new_catalog_motif) > 6 and motif_match_score == 2))
+
+    if main_catalog_motif is not None and not high_motif_similarity:
+        different_motifs_description = f", different motifs"
+        different_motifs_description += f" ({len(main_catalog_motif)}bp in {main_catalog_name} vs {len(new_catalog_motif)}bp)"
+    else:
+        different_motifs_description = ""
+
+    if high_overlap_score and high_motif_similarity:
+        was_match_found = "yes (Jaccard > 0.66 and similar motifs)"
+    elif medium_or_high_overlap_score:
+        if high_overlap_score:
+            was_match_found = f"sort of (Jaccard > 0.66{different_motifs_description})"
+        else:
+            was_match_found = f"sort of (0.2 > Jaccard <= 0.66{different_motifs_description})"
+    elif overlap_score > 0 and motif_match_score > 0:
+        was_match_found = f"no (Jaccard <= 0.2{different_motifs_description})"
+    else:
+        was_match_found = NO_MATCH_FOUND
+
+    return was_match_found
 
 def compare_loci(
         main_catalog_loci,
@@ -293,19 +313,8 @@ def compare_loci(
             motif_match_score = current_motif_match_score
             closest_match_main_catalog_interval = main_catalog_interval
 
-        high_overlap_score = overlap_score >= 5
-        high_motif_similarity = (motif_match_score == 3 or (len(motif) > 6 and motif_match_score == 2))
-        if high_overlap_score and high_motif_similarity:
-            was_match_found = "yes (similar motifs and Jaccard > 0.66)"
-        elif high_overlap_score or high_motif_similarity:
-            if high_overlap_score:
-                was_match_found = "sort of (overlapping definition but mismatched motif)"
-            else:
-                was_match_found = "sort of (matching motifs but very different boundaries)"
-        elif overlap_score > 0 and motif_match_score > 0:
-            was_match_found = "no (overlapping definitions are too different)"
-        else:
-            was_match_found = NO_MATCH_FOUND
+        main_catalog_canonical_motif = closest_match_main_catalog_interval.data if closest_match_main_catalog_interval is not None else None
+        was_match_found = compute_match_summary(overlap_score, motif_match_score, canonical_motif, main_catalog_canonical_motif, main_catalog_name)
 
         output_row = {
             "chrom": chrom,
