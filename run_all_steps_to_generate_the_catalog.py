@@ -239,10 +239,10 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         run(f"python3 -m str_analysis.compute_catalog_stats --verbose {filtered_catalog_path}", step_number=3)
 
     # NOTE: we don't use the --merge-adjacent-loci-with-same-motif  option for str_analysis.merge_loci because
-    # it's important to presenve locus definitions as they appear in the individual source catalogs. If loci
+    # it's important to preserve locus definitions as they appear in the individual source catalogs. If loci
     # are merged together, this can create incompatibility with loci in source catalogs (ie. the illumina catalog) or
     # between future versions of the overall Simple Repeat Catalog since newly-added loci could merge with previously
-    # added loci, causing loss of those loci from new vesions of the catalog. Variation cluster analysis is a better
+    # added loci, causing loss of those loci from new versions of the catalog. Variation cluster analysis is a better
     # way to merge adjacent loci where needed.
     source_catalog_paths_for_merge_command1 = " ".join([
         f"{catalog_name}:{filtered_source_catalog_paths[catalog_name]}" for catalog_name, _ in source_catalogs_in_order
@@ -477,7 +477,7 @@ EOF
     # Perform basic internal consistency checks on the JSON catalog
     run(f"python3 {base_dir}/scripts/validate_catalog.py " +
         f"--known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} " +
-        ("--check-for-presence-of-annotations --check-for-presence-of-all-known-loci " if motif_size_label == "1_to_1000bp_motifs" else "") +
+        ("--check-for-presence-of-annotations --check-for-presence-of-all-known-loci --check-for-presence-of-all-loci-from-v1 " if motif_size_label == "1_to_1000bp_motifs" else "") +
         f"{annotated_catalog_path}", step_number=24)
 
     # copy files to the release_draft folder and compute catalog stats
