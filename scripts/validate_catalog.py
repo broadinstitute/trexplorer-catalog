@@ -2,7 +2,11 @@
 
 import argparse
 import gzip
+import ijson
 import json
+
+
+from str_analysis.utils.file_utils import open_file
 from str_analysis.utils.eh_catalog_utils import get_variant_catalog_iterator
 
 EXPECTED_KEYS_IN_ANNOTATED_CATALOG = {
@@ -31,6 +35,9 @@ TYPE_COMPATIBILITY = {
 	float: (int, float),  # int is a narrower type than float
 }
 
+PATH_OF_CATALOG_V1_JSON = "https://github.com/broadinstitute/tandem-repeat-catalog/releases/download/v1.0/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.json.gz"
+
+
 def parse_known_pathogenic_loci(known_pathogenic_loci_json_path):
 	catalog = {}
 	fopen = gzip.open if known_pathogenic_loci_json_path.endswith("gz") else open
@@ -48,6 +55,8 @@ def main():
 						"annotations in the catalog")
 	parser.add_argument("--check-for-presence-of-all-known-loci", action="store_true", help="Check that all known disease "
 						"loci are present in the catalog")
+	parser.add_argument("--check-for-presence-of-all-loci-from-v1", action="store_true", help="Check that all loci from the v1 "
+						"catalog are also present in the latest catalog")
 	parser.add_argument("--known-pathogenic-loci-json-path", required=True, help="Path of ExpansionHunter catalog "
 						"containing known pathogenic loci. This is used to retrieve the original locus boundaries for "
 						"these loci since their IDs don't contain these coordinates the way that IDs of other loci do.")
@@ -71,6 +80,13 @@ def main():
 	locus_ids = set()
 	reference_regions = set()
 
+	v1_catalog_locus_ids = set()
+	if args.check_for_presence_of_all_loci_from_v1:
+		v1_catalog = open_file(PATH_OF_CATALOG_V1_JSON)
+		for record in ijson.items(v1_catalog, "item"):
+			v1_catalog_locus_ids.add(record["LocusId"])
+
+	current_catalog_locus_ids = set()
 	input_file_iterator = get_variant_catalog_iterator(args.simple_repeat_catalog_path)
 	for i, record in enumerate(input_file_iterator):
 		if not record["ReferenceRegion"].startswith("chr"):
@@ -80,6 +96,9 @@ def main():
 		if record["ReferenceRegion"].replace(":", "-").replace("chr", "") not in record["LocusId"] and record["LocusId"] not in known_locus_id_to_reference_region:
 			print(f"ERROR: ReferenceRegion {record['ReferenceRegion']} does not match LocusId {record['LocusId']}")
 			error_counter += 1
+
+		if args.check_for_presence_of_all_loci_from_v1:
+			current_catalog_locus_ids.add(record["LocusId"])
 
 		locus_ids.add(record["LocusId"])
 		reference_regions.add(record["ReferenceRegion"])
@@ -123,6 +142,14 @@ def main():
 			if reference_region not in reference_regions:
 				print(f"ERROR: {locus_id} ReferenceRegion {reference_region} not found in the simple repeat catalog")
 				error_counter += 1
+
+	if args.check_for_presence_of_all_loci_from_v1:
+		missing_loci = v1_catalog_locus_ids - current_catalog_locus_ids
+		if missing_loci:
+			print(f"ERROR: {len(missing_loci):,d} v1 catalog LocusIds are missing from the current catalog: ",
+				  ', '.join(list(sorted(missing_loci))[:10]), "...")
+			error_counter += len(missing_loci)
+
 
 	if error_counter > 0:
 		raise ValueError(f"Found {error_counter} errors in {args.simple_repeat_catalog_path}")
