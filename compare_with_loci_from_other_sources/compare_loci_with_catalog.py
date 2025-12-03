@@ -16,28 +16,40 @@ import tqdm
 from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 from str_analysis.utils.find_repeat_unit import find_repeat_unit_without_allowing_interruptions
 
-MOTIF_MATCH_SCORE_FOR_SAME_MOTIF = 3
-
+MOTIF_MATCH_SCORE_FOR_SAME_MOTIF = 4
+MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH = 3
+MOTIF_MATCH_SCORE_FOR_SHORTER_MOTIF_IN_MAIN_CATALOG = 2
+MOTIF_MATCH_SCORE_FOR_LONGER_MOTIF_IN_MAIN_CATALOG = 1
+MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG = 0
+MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_NEW_CATALOG = -1
 MOTIF_MATCH_SCORE_MAP = {
     MOTIF_MATCH_SCORE_FOR_SAME_MOTIF: "same motif",
-    2: "same motif length",
-    1: "different motif length",
-    0: "absent from main catalog",
-    -1: "absent from new catalog",
+    MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH: "same motif length",
+    MOTIF_MATCH_SCORE_FOR_SHORTER_MOTIF_IN_MAIN_CATALOG: "shorter motif in main catalog",
+    MOTIF_MATCH_SCORE_FOR_LONGER_MOTIF_IN_MAIN_CATALOG: "longer motif in main catalog",
+    MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG: "absent from main catalog",
+    MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_NEW_CATALOG: "absent from new catalog",
 }
 
 OVERLAP_SCORE_FOR_EXACT_MATCH = 7
-
+OVERLAP_SCORE_FOR_DIFF_2_REPEATS = 6
+OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66 = 5
+OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_5_AND_0_66 = 4
+OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_33_AND_0_5 = 3
+OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_33 = 2
+OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2 = 1
+OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG = 0
+OVERLAP_SCORE_FOR_ABSENT_FROM_NEW_CATALOG = -1
 OVERLAP_SCORE_MAP = {
     OVERLAP_SCORE_FOR_EXACT_MATCH: "exact match",
-    6: "diff ≤ 2 repeats",
-    5: "Jaccard similarity > 0.66",
-    4: "0.5 < Jaccard similarity ≤ 0.66",
-    3: "0.33 < Jaccard similarity ≤ 0.5",
-    2: "0.2 < Jaccard similarity ≤ 0.33",
-    1: "Jaccard similarity ≤ 0.2",
-    0: "absent from main catalog",
-    -1: "absent from new catalog",
+    OVERLAP_SCORE_FOR_DIFF_2_REPEATS: "diff ≤ 2 repeats",
+    OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66: "Jaccard similarity > 0.66",
+    OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_5_AND_0_66: "0.5 < Jaccard similarity ≤ 0.66",
+    OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_33_AND_0_5: "0.33 < Jaccard similarity ≤ 0.5",
+    OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_33: "0.2 < Jaccard similarity ≤ 0.33",
+    OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2: "Jaccard similarity ≤ 0.2",
+    OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG: "absent from main catalog",
+    OVERLAP_SCORE_FOR_ABSENT_FROM_NEW_CATALOG: "absent from new catalog",
 }
 
 NO_MATCH_FOUND = "no (no overlapping definitions)"
@@ -51,8 +63,8 @@ def main():
     p.add_argument("--plot-output-dir", default="plots", help="Directory to write plots to")
     p.add_argument("--write-loci-absent-from-new-catalog", action="store_true",
                    help="When generating the output table, include loci that are absent from the new catalog")
-    p.add_argument("--write-bed-files-of-loci-with-same-boundardies-but-different-motifs", action="store_true",
-                   help="Troubleshoot loci that have the same exact boundaries in both catalogs, but different motifs")
+    p.add_argument("--write-bed-files-with-subsets", action="store_true",
+                   help="Output BED files of loci with different concordance levels to enable manual review")
     p.add_argument("--catalog-bed-path",
                    default="TRExplorer_v2:../results__2025-11-03/release_draft_2025-11-03/repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz",
                    help="BED file path for the main TR catalog. Optionally, the path can be preceded by a name for the catalog, followed by ':' and then the path")
@@ -90,10 +102,12 @@ def main():
             p.error(f"File not found: {path}")
 
 
-    OVERLAP_SCORE_MAP[0] = f"absent from {args.catalog_name} catalog"
-    MOTIF_MATCH_SCORE_MAP[0] = f"absent from {args.catalog_name} catalog"
-    OVERLAP_SCORE_MAP[-1] = f"only in {args.catalog_name} catalog"
-    MOTIF_MATCH_SCORE_MAP[-1] = f"only in {args.catalog_name} catalog"
+    OVERLAP_SCORE_MAP[OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG] = f"absent from {args.catalog_name} catalog"
+    MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG] = f"absent from {args.catalog_name} catalog"
+    MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_LONGER_MOTIF_IN_MAIN_CATALOG] = f"longer motif in {args.catalog_name} catalog"
+    MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SHORTER_MOTIF_IN_MAIN_CATALOG] = f"shorter motif in {args.catalog_name} catalog"
+    OVERLAP_SCORE_MAP[OVERLAP_SCORE_FOR_ABSENT_FROM_NEW_CATALOG] = f"only in {args.catalog_name} catalog"
+    MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_NEW_CATALOG] = f"only in {args.catalog_name} catalog"
 
     main_catalog_loci = load_main_catalog_loci(args)
 
@@ -108,29 +122,65 @@ def main():
             new_catalog_name=new_catalog_name,
             write_loci_absent_from_new_catalog=args.write_loci_absent_from_new_catalog,
         )
+        df.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
         df.to_csv(output_tsv, sep="\t", index=False)
         print(f"Wrote {len(df):,d} rows to {output_tsv}")
 
-        if args.write_bed_files_of_loci_with_same_boundardies_but_different_motifs:
+        if args.write_bed_files_with_subsets:
+
+            # output BED file with loci that have Jaccard similarity < 0.2
+            df_filtered = df[df["overlap_score"] == OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2]
+            if len(df_filtered) == 0:
+                print(f"No loci were found to have Jaccard similarity < 0.2")
+            else:
+                output_bed_path = f"loci_from_{new_catalog_name}.jaccard_similarity_below_0_2.bed"
+                df_filtered[["chrom", "start_0based", "end_1based", f"{new_catalog_name}_motif"]].to_csv(output_bed_path, sep="\t", index=False, header=False)
+                os.system(f"bgzip -f {output_bed_path}")
+                os.system(f"tabix -f {output_bed_path}.gz")
+                print(f"Wrote {len(df_filtered):,d} rows to {output_bed_path}.gz")
+
+            # output BED file with loci that are absent from the new catalog
+            df_filtered = df[df["overlap_score"] == OVERLAP_SCORE_FOR_ABSENT_FROM_NEW_CATALOG]
+            if len(df_filtered) == 0:
+                print(f"No loci were found to be absent from {new_catalog_name}")
+            else:
+                output_bed_path = f"loci_from_{args.catalog_name}.absent_from_{new_catalog_name}.bed"
+                df_filtered[["chrom", "start_0based", "end_1based", f"{args.catalog_name}_motif"]].to_csv(output_bed_path, sep="\t", index=False, header=False)
+                os.system(f"bgzip -f {output_bed_path}")
+                os.system(f"tabix -f {output_bed_path}.gz")
+                print(f"Wrote {len(df_filtered):,d} rows to {output_bed_path}.gz")
+
+            # output BED file with loci that are absent from the main catalog
+            df_filtered = df[df["overlap_score"] == OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG]
+            if len(df_filtered) == 0:
+                print(f"No loci were found to be absent from {args.catalog_name}")
+            else:
+                output_bed_path = f"loci_from_{new_catalog_name}.absent_from_{args.catalog_name}.bed"
+                df_filtered[["chrom", "start_0based", "end_1based", f"{new_catalog_name}_motif"]].to_csv(output_bed_path, sep="\t", index=False, header=False)
+                os.system(f"bgzip -f {output_bed_path}")
+                os.system(f"tabix -f {output_bed_path}.gz")
+                print(f"Wrote {len(df_filtered):,d} rows to {output_bed_path}.gz")
+
+            # output BED file with Jaccard similarity < 0.2
+
+            # output BED files with loci that have the same boundaries in the two catalogs but different motifs
             df_filtered = df[(df["overlap_score"] == OVERLAP_SCORE_FOR_EXACT_MATCH) & (df["motif_match_score"] <= 1)]
             if len(df_filtered) == 0:
                 print("No loci have the same boundaries in the two catalogs but different motifs")
-                continue
+            else:
+                print(f"Found {len(df_filtered):,d} out of {len(df):,d} ({len(df_filtered) / len(df):.1%}) loci have the same boundaries in the two catalogs but different motifs")
 
-            print(f"Found {len(df_filtered):,d} out of {len(df):,d} ({len(df_filtered) / len(df):.1%}) loci have the same boundaries in the two catalogs but different motifs")
-            df_filtered.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
+                output_bed1_path = f"loci_from_{args.catalog_name}.same_boundaries_but_different_motifs.bed"
+                df_filtered[["chrom", "start_0based", "end_1based", f"{args.catalog_name}_motif"]].to_csv(output_bed1_path, sep="\t", index=False, header=False)
+                os.system(f"bgzip -f {output_bed1_path}")
+                os.system(f"tabix -f {output_bed1_path}.gz")
+                print(f"Wrote {len(df_filtered):,d} rows to {output_bed1_path}.gz")
 
-            output_bed1_path = f"loci_from_{args.catalog_name}.same_boundaries_but_different_motifs.bed"
-            df_filtered[["chrom", "start_0based", "end_1based", f"{args.catalog_name}_motif"]].to_csv(output_bed1_path, sep="\t", index=False, header=False)
-            os.system(f"bgzip -f {output_bed1_path}")
-            os.system(f"tabix -f {output_bed1_path}.gz")
-            print(f"Wrote {len(df_filtered):,d} rows to {output_bed1_path}.gz")
-
-            output_bed2_path = f"loci_from_{new_catalog_name}.same_boundaries_but_different_motifs.bed"
-            df_filtered[["chrom", "start_0based", "end_1based", f"{new_catalog_name}_motif"]].to_csv(output_bed2_path, sep="\t", index=False, header=False)
-            os.system(f"bgzip -f {output_bed2_path}")
-            os.system(f"tabix -f {output_bed2_path}.gz")
-            print(f"Wrote {len(df_filtered):,d} rows to {output_bed2_path}.gz")
+                output_bed2_path = f"loci_from_{new_catalog_name}.same_boundaries_but_different_motifs.bed"
+                df_filtered[["chrom", "start_0based", "end_1based", f"{new_catalog_name}_motif"]].to_csv(output_bed2_path, sep="\t", index=False, header=False)
+                os.system(f"bgzip -f {output_bed2_path}")
+                os.system(f"tabix -f {output_bed2_path}.gz")
+                print(f"Wrote {len(df_filtered):,d} rows to {output_bed2_path}.gz")
 
         if args.print_stats > 0:
             print_stats(args, main_catalog_loci, df, new_catalog_name=new_catalog_name)
@@ -155,7 +205,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
 
     if args.print_stats >= 1:
         print("Summary:")
-        for key, count in sorted(df["match_found?"].value_counts().items(), reverse=True):
+        for key, count in sorted(df["match_found?"].apply(lambda x: x.split(" ")[0]).value_counts().items(), reverse=True):
             print(f"{count:10,d}  {key}")
 
         for locus_type in "TRs", "STRs", "VNTRs":
@@ -308,11 +358,12 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
     if new_catalog_has_motifs:
         alpha = 0.5
         motif_match_colors = {
-            "same motif": (0.0, 0.7, 0.0, alpha),  # green 
-            "same motif length": (0.95, 0.8, 0.1, alpha),  # yellow 
-            "different motif length": (0.9, 0.0, 0.0, alpha),  # red 
-            f"absent from {args.catalog_name} catalog": (0.0, 0.0, 0.7, alpha),  #  blue 
-            f"only in {args.catalog_name} catalog": (0.0, 0.0, 0.7, alpha),  #  blue
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF]: (0.0, 0.7, 0.0, alpha),                     # green 
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH]: (0.95, 0.8, 0.1, alpha),             # yellow 
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SHORTER_MOTIF_IN_MAIN_CATALOG]: (0.95, 0.0, 0.0, alpha),  # light red 
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_LONGER_MOTIF_IN_MAIN_CATALOG]: (0.5, 0.0, 0.0, alpha),   # dark red 
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG]: (0.0, 0.0, 0.7, alpha),       #  blue 
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_NEW_CATALOG]: (0.0, 0.0, 0.7, alpha),        #  blue
         }
 
         colors = [motif_match_colors.get(col, (0.5, 0.5, 0.5, alpha)) for col in plot_data_pivot.columns]
@@ -326,6 +377,8 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
         patch.set_height(patch.get_height() * 1.5)
     plt.title(f"Does {args.catalog_name.replace('_', ' ')} capture TR loci from {new_catalog_name}?", pad=10)
     plt.xlabel("# of TR loci")
+
+    plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
 
     # shift the plot to the right by 10% of the width of the plot
     plt.gca().set_position([0.22, 0.1, 0.75, 0.8])
@@ -372,11 +425,15 @@ def load_main_catalog_loci(args):
 
 def compute_motif_match_score(main_catalog_canonical_motif, other_catalog_canonical_motif):
     if main_catalog_canonical_motif == other_catalog_canonical_motif:
-        return 3   # same motif
+        return MOTIF_MATCH_SCORE_FOR_SAME_MOTIF
     elif len(main_catalog_canonical_motif) == len(other_catalog_canonical_motif):
-        return 2   # same length
+        return MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH
+    elif len(main_catalog_canonical_motif) < len(other_catalog_canonical_motif):
+        return MOTIF_MATCH_SCORE_FOR_SHORTER_MOTIF_IN_MAIN_CATALOG
+    elif len(main_catalog_canonical_motif) > len(other_catalog_canonical_motif):
+        return MOTIF_MATCH_SCORE_FOR_LONGER_MOTIF_IN_MAIN_CATALOG
     else:
-        return 1   # different length
+        raise Exception(f"Logic error")
 
 
 def compute_overlap_score(main_catalog_interval, start_0based, end_1based, min_motif_size):
@@ -393,26 +450,25 @@ def compute_overlap_score(main_catalog_interval, start_0based, end_1based, min_m
     """
     if not main_catalog_interval.overlaps(start_0based, end_1based):
         raise ValueError(f"Main catalog interval {main_catalog_interval} does not overlap with new locus {start_0based}-{end_1based}")
-        # return 0 
 
     if main_catalog_interval.begin == start_0based and main_catalog_interval.end == end_1based:
-        return 7
+        return OVERLAP_SCORE_FOR_EXACT_MATCH
     
     union_size = max(main_catalog_interval.end, end_1based) - min(main_catalog_interval.begin, start_0based)
     intersection_size = main_catalog_interval.overlap_size(start_0based, end_1based)
     if abs(intersection_size - union_size) <= 2*min_motif_size:
-        return 6
+        return OVERLAP_SCORE_FOR_DIFF_2_REPEATS
     jaccard_similarity = intersection_size / union_size
     if jaccard_similarity > 2/3.0:
-        return 5
+        return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66
     if jaccard_similarity > 0.5:
-        return 4
+        return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_5_AND_0_66
     if jaccard_similarity > 1/3.0:
-        return 3
+        return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_33_AND_0_5
     if jaccard_similarity > 0.2:
-        return 2
+        return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_33
 
-    return 1
+    return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2
 
 
 def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, main_catalog_motif, main_catalog_name=None):

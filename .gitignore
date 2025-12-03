@@ -1,3 +1,4 @@
+
 .idea
 *.fa
 *.fai
@@ -5,12 +6,19 @@
 *.gtf*
 *.tsv*
 *.csv*
-results*
+*.json
+*.json.gz
+*.txt.gz
+*.xls*
+*.twb*
+*.db
 nohup.out
+
+results*
 paper/compare_catalogs
 paper/*.png
 paper/*.svg
-
+compare_with_loci_from_other_sources/*/plots
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

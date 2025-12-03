@@ -1,0 +1,12 @@
+The Adotto catalog lists adVNTR as one of its 9 source catalogs
+(Analysis and benchmarking of small and large genomic variants across tandem repeats: Supp. Table 1):
+https://www.nature.com/articles/s41587-024-02225-z
+Also, its Supp. Table 14 lists known pathogenic loci.
+
+The SQLite db of gene-proximal and phenotype-associated VNTRs was downloaded from https://github.com/mehrdadbakhtiari/adVNTR
+
+Also, one of the adVNTR papers
+(Variable number tandem repeats mediate the expression of proximal genes: Supplementary Data 1):
+https://www.nature.com/articles/s41467-021-22206-z#Sec29
+lists 10,264 VNTR loci originally identified by TRF (with unclear parameters) as described in the above paper.
+

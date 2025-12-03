@@ -1,0 +1,17 @@
+sc-eTRs from https://www.biorxiv.org/content/10.1101/2024.11.02.621562v2.full
+
+Supplementary Table 1: List of single-cell expression quantitative trait TR loci (sc-eTRs) (FDR < 5%)
+The details for each column are: 
+chromosome: chromosome of the single-cell eTR (hg38)
+start coordinate (hg38): start coordinate of the single-cell eTR
+end coordinate (hg38): end coordinate of the single-cell eTR
+motif: motif of the single-cell eTR
+cell_type: cell type of the single-cell eTR
+eGene: eGene associated with the single-cell eTR
+nominal p-value: nominal (uncorrected) p-value of the single-cell eTR
+effect size: effect size of the single-cell eTR
+standard error: standard error of the single-cell eTR
+
+
+Supplementary Table 3: List of candidate causal sc-eTRs (posterior inclusion probability (susie_pip) >= 0.7)
+Candidate causal sc-eTRs are a subset of all sc-eTRs (FDR <5%) identified (Table S1).
