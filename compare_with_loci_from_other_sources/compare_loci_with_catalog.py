@@ -9,12 +9,14 @@ import gzip
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
+import pyfaidx
 import re
 import seaborn as sns
 import tqdm
 
 from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 from str_analysis.utils.find_repeat_unit import find_repeat_unit_without_allowing_interruptions
+from str_analysis.utils.fasta_utils import compute_sequence_purity_stats
 
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF = 4
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH = 3
@@ -57,6 +59,7 @@ NO_MATCH_FOUND = "no (no overlapping definitions)"
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("-n", type=int, help="Number of loci to process")
+    p.add_argument("-R", "--reference-fasta", help="Reference genome FASTA file", default="~/hg38.fa")
     p.add_argument("--print-stats", type=int, default=1, choices=[0, 1, 2, 3],
                    help="At the end, output some stats at this level of detail. The higher the number, the more detailed the stats")
     p.add_argument("--skip-plots", action="store_true", help="Skip generating plots")
@@ -86,6 +89,12 @@ def main():
     if not os.path.isdir(args.plot_output_dir):
         print(f"Creating plot output directory: {args.plot_output_dir}")
         os.makedirs(args.plot_output_dir)
+
+    reference_fasta_path = os.path.expanduser(args.reference_fasta)
+    if not os.path.isfile(reference_fasta_path):
+        p.error(f"File not found: {reference_fasta_path}")
+    reference_fasta = pyfaidx.Fasta(reference_fasta_path, as_raw=True, one_based_attributes=False, sequence_always_upper=True)
+
 
     new_catalog_names = []
     for i, path in enumerate(args.new_catalog):
@@ -120,6 +129,7 @@ def main():
             new_catalog_path,
             main_catalog_name=args.catalog_name,
             new_catalog_name=new_catalog_name,
+            reference_fasta=reference_fasta,
             write_loci_absent_from_new_catalog=args.write_loci_absent_from_new_catalog,
         )
         df.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
@@ -259,13 +269,15 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
 
     df1 = df[df[f"{new_catalog_name}_canonical_motif"].notna()]
     if len(df1) > 0:
-        new_catalog_motif_size_distribution = collections.Counter(df1[f"{new_catalog_name}_canonical_motif"].str.len())    
-        new_catalog_motif_size_distribution2 = collections.Counter(df1[df1["overlap_score"] == 0][f"{new_catalog_name}_canonical_motif"].str.len())    
-        for catalog_name, motif_size_distribution in [
-            (args.catalog_name, main_catalog_motif_size_distribution),
-            (new_catalog_name, new_catalog_motif_size_distribution),
-            (f"{new_catalog_name}_loci_missing_from_{args.catalog_name}", new_catalog_motif_size_distribution2),
-        ]:
+        df1["motif_size"] = df1[f"{new_catalog_name}_canonical_motif"].str.len()
+        new_catalog_motif_size_distribution = collections.Counter(df1["motif_size"])    
+        new_catalog_motif_size_distribution2 = collections.Counter(df1[df1["overlap_score"] == 0]["motif_size"])    
+        catalog_map = {
+            args.catalog_name: main_catalog_motif_size_distribution,
+            new_catalog_name: new_catalog_motif_size_distribution,
+            f"{new_catalog_name}_loci_absent_from_{args.catalog_name}": new_catalog_motif_size_distribution2,
+        }
+        for catalog_name, motif_size_distribution in catalog_map.items():
             # bin values between 7 and 24 as "7-24" and 25+ as "25+"
             motif_size_distribution_binned = {f"{motif_size}bp": 0 for motif_size in range(1, 25)}
             motif_size_distribution_binned["25+"] = 0
@@ -274,8 +286,9 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
                     motif_size_distribution_binned[f"{motif_size}bp"] += count
                 else:
                     motif_size_distribution_binned["25+"] += count
-            motif_size_distribution = motif_size_distribution_binned
+            catalog_map[catalog_name] = motif_size_distribution_binned
 
+        for catalog_name, motif_size_distribution in catalog_map.items():
             catalog_name = catalog_name.replace(" ", "_")
             plt.figure(figsize=(12, 6))
             sns.barplot(x=list(motif_size_distribution.keys()), y=list(motif_size_distribution.values()), color="cornflowerblue")
@@ -295,15 +308,79 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
             print(f"Wrote motif size distribution to {output_path}")
             plt.close()
 
+        # add a single bar plot that shows multiple bars side by side for each motif size - one for each catalog
+        # Use dual y-axes: left axis for first catalog (main), right axis for 2nd and 3rd catalogs
+        motif_size_order = [f"{i}bp" for i in range(1, 25)] + ["25+"]
+        catalog_names = list(catalog_map.keys())
+        
+        fig, ax1 = plt.subplots(figsize=(14, 6))
+        ax2 = ax1.twinx()
+        
+        # Get data for each catalog
+        x_positions = range(len(motif_size_order))
+        bar_width = 0.25
+        
+        # Plot first catalog (main) on left axis
+        first_catalog_name = catalog_names[0]
+        first_catalog_counts = [catalog_map[first_catalog_name].get(motif_size, 0) for motif_size in motif_size_order]
+        bars1 = ax1.bar([x - bar_width for x in x_positions], first_catalog_counts, width=bar_width, 
+                        label=first_catalog_name, color="cornflowerblue", alpha=0.8)
+        
+        # Plot 2nd and 3rd catalogs on right axis
+        if len(catalog_names) >= 2:
+            second_catalog_name = catalog_names[1]
+            second_catalog_counts = [catalog_map[second_catalog_name].get(motif_size, 0) for motif_size in motif_size_order]
+            bars2 = ax2.bar(x_positions, second_catalog_counts, width=bar_width,
+                           label=second_catalog_name, color="coral", alpha=0.8)
+        
+        if len(catalog_names) >= 3:
+            third_catalog_name = catalog_names[2]
+            third_catalog_counts = [catalog_map[third_catalog_name].get(motif_size, 0) for motif_size in motif_size_order]
+            bars3 = ax2.bar([x + bar_width for x in x_positions], third_catalog_counts, width=bar_width,
+                           label=third_catalog_name, color="lightgreen", alpha=0.8)
+        
+        # Set x-axis labels
+        ax1.set_xticks(x_positions)
+        ax1.set_xticklabels(motif_size_order, rotation=45, ha="right")
+        ax1.set_xlabel("Motif size")
+        
+        # Set y-axis labels and formatting
+        ax1.set_ylabel(f"Count ({first_catalog_name})", color="cornflowerblue")
+        ax1.tick_params(axis="y", labelcolor="cornflowerblue")
+        ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+        
+        if len(catalog_names) >= 2:
+            ax2.set_ylabel(f"Count ({catalog_names[1]})\nCount ({catalog_names[2]})", color="coral")
+            ax2.tick_params(axis="y", labelcolor="coral")
+            ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+        
+        # Styling
+        ax1.spines["top"].set_visible(False)
+        ax2.spines["top"].set_visible(False)
+        ax1.grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray", alpha=0.5)
+        ax2.grid(axis="y", linestyle="--", linewidth=0.5, color="lightgray", alpha=0.5)
+        
+        # Combine legends
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, frameon=False, loc="best")
+        
+        plt.title("Motif size distribution for each catalog", pad=10)
+        plt.tight_layout()
+        plt.savefig(f"{args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.motif_size_distribution.png")
+        print(f"Wrote motif size distribution to {args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.motif_size_distribution.png")
+        plt.close()
+
     df2 = df[df[f"{new_catalog_name}_reference_repeat_count"].notna()]
     if len(df2) > 0:
         new_catalog_reference_repeat_count_distribution = collections.Counter(df2[f"{new_catalog_name}_reference_repeat_count"])
         new_catalog_reference_repeat_count_distribution2 = collections.Counter(df2[df2["overlap_score"] == 0][f"{new_catalog_name}_reference_repeat_count"])
-        for catalog_name, reference_repeat_count_distribution in [
-            (args.catalog_name, main_catalog_reference_repeat_count_distribution),
-            (new_catalog_name, new_catalog_reference_repeat_count_distribution),
-            (f"{new_catalog_name}_loci_missing_from_{args.catalog_name}", new_catalog_reference_repeat_count_distribution2),
-        ]:
+        catalog_map = {
+            args.catalog_name: main_catalog_reference_repeat_count_distribution,
+            new_catalog_name: new_catalog_reference_repeat_count_distribution,
+            f"{new_catalog_name}_loci_absent_from_{args.catalog_name}": new_catalog_reference_repeat_count_distribution2,
+        }
+        for catalog_name, reference_repeat_count_distribution in catalog_map.items():
             # bin values between 1 and 10 as "1-10" and 11+ as "11+"
             reference_repeat_count_distribution_binned = {f"{repeat_count}x": 0 for repeat_count in range(0, 11)}
             reference_repeat_count_distribution_binned["11+"] = 0
@@ -313,8 +390,9 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
                     reference_repeat_count_distribution_binned[f"{repeat_count}x"] += count
                 else:
                     reference_repeat_count_distribution_binned["11+"] += count
-            reference_repeat_count_distribution = reference_repeat_count_distribution_binned
+            catalog_map[catalog_name] = reference_repeat_count_distribution_binned
 
+        for catalog_name, reference_repeat_count_distribution in catalog_map.items():
             catalog_name = catalog_name.replace(" ", "_")
             plt.figure(figsize=(12, 6))
             sns.barplot(x=list(reference_repeat_count_distribution.keys()), y=list(reference_repeat_count_distribution.values()), color="cornflowerblue")
@@ -333,6 +411,70 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
             plt.savefig(output_path)
             print(f"Wrote reference repeat count distribution to {output_path}")
             plt.close()
+
+
+        # add a single bar plot that shows multiple bars side by side for each motif size - one for each catalog
+        # Use dual y-axes: left axis for first catalog (main), right axis for 2nd and 3rd catalogs
+        repeat_count_order = [f"{i}x" for i in range(0, 11)] + ["11+"]
+        catalog_names = list(catalog_map.keys())
+        
+        fig, ax1 = plt.subplots(figsize=(14, 6))
+        ax2 = ax1.twinx()
+        
+        # Get data for each catalog
+        x_positions = range(len(repeat_count_order))
+        bar_width = 0.25
+        
+        # Plot first catalog (main) on left axis
+        first_catalog_name = catalog_names[0]
+        first_catalog_counts = [catalog_map[first_catalog_name].get(repeat_count, 0) for repeat_count in repeat_count_order]
+        bars1 = ax1.bar([x - bar_width for x in x_positions], first_catalog_counts, width=bar_width, 
+                        label=first_catalog_name, color="cornflowerblue", alpha=0.8)
+        
+        # Plot 2nd and 3rd catalogs on right axis
+        if len(catalog_names) >= 2:
+            second_catalog_name = catalog_names[1]
+            second_catalog_counts = [catalog_map[second_catalog_name].get(repeat_count, 0) for repeat_count in repeat_count_order]
+            bars2 = ax2.bar(x_positions, second_catalog_counts, width=bar_width,
+                           label=second_catalog_name, color="coral", alpha=0.8)
+        
+        if len(catalog_names) >= 3:
+            third_catalog_name = catalog_names[2]
+            third_catalog_counts = [catalog_map[third_catalog_name].get(repeat_count, 0) for repeat_count in repeat_count_order]
+            bars3 = ax2.bar([x + bar_width for x in x_positions], third_catalog_counts, width=bar_width,
+                           label=third_catalog_name, color="lightgreen", alpha=0.8)
+        
+        # Set x-axis labels
+        ax1.set_xticks(x_positions)
+        ax1.set_xticklabels(repeat_count_order, rotation=45, ha="right")
+        ax1.set_xlabel("Reference repeat count")
+        
+        # Set y-axis labels and formatting
+        ax1.set_ylabel(f"Count ({first_catalog_name})", color="cornflowerblue")
+        ax1.tick_params(axis="y", labelcolor="cornflowerblue")
+        ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+        
+        if len(catalog_names) >= 2:
+            ax2.set_ylabel(f"Count ({catalog_names[1]})\nCount ({catalog_names[2]})", color="coral")
+            ax2.tick_params(axis="y", labelcolor="coral")
+            ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+        
+        # Styling
+        ax1.spines["top"].set_visible(False)
+        ax2.spines["top"].set_visible(False)
+        ax1.grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray", alpha=0.5)
+        ax2.grid(axis="y", linestyle="--", linewidth=0.5, color="lightgray", alpha=0.5)
+        
+        # Combine legends
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, frameon=False, loc="best")
+        
+        plt.title("Reference repeat count distribution for each catalog", pad=10)
+        plt.tight_layout()
+        plt.savefig(f"{args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.reference_repeat_count_distribution.png")
+        print(f"Wrote reference repeat count distribution to {args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.reference_repeat_count_distribution.png")
+        plt.close()        
 
     # horizontal bar plot of the values in the 'overlap' column with color by 'motif_match' column
     plt.figure(figsize=(12, 6))
@@ -394,7 +536,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
     plt.gca().set_ylabel("")
     plt.gca().spines["top"].set_visible(False)
     plt.gca().spines["right"].set_visible(False)
-    output_path = f"{args.plot_output_dir}/{new_catalog_name}.vs.{args.catalog_name}.overlap_distribution_by_motif_match.png"
+    output_path = f"{args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.overlap_distribution_by_motif_match.png"
     plt.savefig(output_path)
     print(f"Wrote overlap distribution by motif match to {output_path}")
     plt.close()
@@ -497,11 +639,24 @@ def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, m
     return was_match_found
 
 
+def get_purity_stats_for_locus(reference_fasta, chrom, start_0based, end_1based, motif):
+    if reference_fasta is not None:
+        chrom = "chr"+chrom.replace("chr", "")  # make sure chrom has "chr" prefix
+        reference_sequence = reference_fasta[chrom][start_0based:end_1based]
+        _, motif_purity, _ = compute_sequence_purity_stats(reference_sequence, motif)
+        _, motif_length_purity, _ = compute_sequence_purity_stats(reference_sequence, reference_sequence[:len(motif)])
+    else:
+        motif_purity = None
+        motif_length_purity = None
+    return motif_purity, motif_length_purity
+
+
 def compare_loci(
         main_catalog_loci,
         new_catalog,
         main_catalog_name="catalog1",
         new_catalog_name="catalog2",
+        reference_fasta=None,
         write_loci_absent_from_new_catalog=False,
 ):
     """Compare a new catalog to the main catalog and output a TSV file of the results"""
@@ -582,6 +737,8 @@ def compare_loci(
         was_match_found = compute_match_summary(overlap_score, motif_match_score, canonical_motif, main_catalog_canonical_motif, main_catalog_name)
 
         reference_repeat_count = (end_1based - start_0based) // len(canonical_motif) if canonical_motif is not None else None
+        motif_purity, motif_length_purity = get_purity_stats_for_locus(reference_fasta, chrom, start_0based, end_1based, motif)
+
         output_row = {
             "chrom": chrom,
 
@@ -602,6 +759,8 @@ def compare_loci(
             f"{new_catalog_name}_reference_region": f"{chrom}:{start_0based}-{end_1based}",
             f"{new_catalog_name}_reference_repeat_count": reference_repeat_count,
             f"{new_catalog_name}_reference_region_size": end_1based - start_0based,
+            f"{new_catalog_name}_purity_of_motif": motif_purity,
+            f"{new_catalog_name}_purity_of_motif_length": motif_length_purity,
 
             "overlap_score": overlap_score,
             "motif_match_score": motif_match_score,
@@ -616,6 +775,8 @@ def compare_loci(
             closest_match_motif = closest_match_main_catalog_interval.data["motif"]
             closest_match_canonical_motif = closest_match_main_catalog_interval.data["canonical_motif"]
             closest_match_reference_region = f"{chrom}:{closest_match_start_0based}-{closest_match_end_1based}"
+            closest_match_motif_purity, closest_match_motif_length_purity = get_purity_stats_for_locus(reference_fasta, chrom, closest_match_start_0based, closest_match_end_1based, closest_match_motif)
+
             output_row.update({
                 f"{main_catalog_name}_start_0based": closest_match_start_0based,
                 f"{main_catalog_name}_end_1based": closest_match_end_1based,
@@ -624,6 +785,8 @@ def compare_loci(
                 f"{main_catalog_name}_reference_region": closest_match_reference_region,
                 f"{main_catalog_name}_reference_repeat_count": (closest_match_end_1based - closest_match_start_0based) // len(closest_match_canonical_motif),
                 f"{main_catalog_name}_reference_region_size": closest_match_end_1based - closest_match_start_0based,
+                f"{main_catalog_name}_purity_of_motif": closest_match_motif_purity,
+                f"{main_catalog_name}_purity_of_motif_length": closest_match_motif_length_purity,
             })
 
         output_rows.append(output_row)
@@ -641,6 +804,7 @@ def compare_loci(
                 main_catalog_motif = main_catalog_interval.data["motif"]
                 main_catalog_reference_region = f"{chrom}:{main_catalog_interval.begin}-{main_catalog_interval.end}"
                 main_catalog_reference_repeat_count = (main_catalog_interval.end - main_catalog_interval.begin) // len(main_catalog_canonical_motif)
+                main_catalog_motif_purity, main_catalog_motif_length_purity = get_purity_stats_for_locus(reference_fasta, chrom, main_catalog_interval.begin, main_catalog_interval.end, main_catalog_motif)
                 output_rows.append({
                     "chrom": chrom,
                     
@@ -665,6 +829,8 @@ def compare_loci(
                     f"{main_catalog_name}_reference_region": main_catalog_reference_region,
                     f"{main_catalog_name}_reference_repeat_count": main_catalog_reference_repeat_count,
                     f"{main_catalog_name}_reference_region_size": main_catalog_interval.end - main_catalog_interval.begin,
+                    f"{main_catalog_name}_purity_of_motif": main_catalog_motif_purity,
+                    f"{main_catalog_name}_purity_of_motif_length": main_catalog_motif_length_purity,
                 })
 
     if f is not None:

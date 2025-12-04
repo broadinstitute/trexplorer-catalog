@@ -9,11 +9,12 @@ from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 os.chdir(os.path.dirname(__file__))
 
 SOURCES = [
-    ("KnownDiseaseAssociatedLoci_v2", "loci_from_known_disease_associated_loci_v2/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
+    ("Annear2021", "loci_from_Annear_2021/loci_from_Annar_2021_CCG_loci.absent_from_TRExplorer_v2.bed.gz"),
     #("KnownVNTRs", "loci_from_crowd_sourced_VNTRs/functional_vntrs.loci_to_include_in_catalog.bed.gz"),
     ("ClinVar:2025-11-03", "loci_from_clinvar_2025_11_03/clinvar_2025_11_03.tandem_repeats.loci_to_include_in_catalog.bed.gz"),
     ("Mukamel2021", "loci_from_Mukamel_2021/vntrs_in_ST1.loci_to_include_in_catalog.bed.gz"),
     ("Tanudisastro2024:sc-eTRs", "loci_from_Tanudisastro_2024_sc-eTRs/TableS1v0.1.loci_to_include_in_catalog.bed.gz"),
+    ("KnownDiseaseAssociatedLoci_v2", "loci_from_known_disease_associated_loci_v2/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
     #("Danzi2025", "loci_from_Danzi_2025/Danzi_2025.loci_to_include_in_catalog.bed.gz"),
 ]
 
