@@ -84,6 +84,7 @@ with gzip.open(args.adotto_catalog_bed_path, "rt") as f:
 # Find loci in the Adotto catalog that overlap the outlier intervals and have the same motif length
 adotto_catalog_loci_that_overlap_outlier_intervals = []
 adotto_catalog_loci_that_overlap_outlier_intervals_and_have_same_length_motifs = []
+adotto_catalog_loci_that_overlap_outlier_intervals_and_have_same_length_motifs_replaced_with_LPS_motif = []
 total_outlier_intervals_without_overlapping_adotto_loci = 0
 for index, row in df.iterrows():
     chrom = row["chrom"].replace("chr", "")
@@ -107,6 +108,12 @@ for index, row in df.iterrows():
                     chrom,
                     overlapping_interval.begin,
                     overlapping_interval.end,
+                    overlapping_interval.data["motif"],
+                ))
+                adotto_catalog_loci_that_overlap_outlier_intervals_and_have_same_length_motifs_replaced_with_LPS_motif.append((
+                    chrom,
+                    overlapping_interval.begin,
+                    overlapping_interval.end,
                     motif,
                 ))
 
@@ -122,6 +129,7 @@ print(f"Found that the outlier intervals overlapped a total of {len(adotto_catal
 for locus_list, output_bed_path in [
     (adotto_catalog_loci_that_overlap_outlier_intervals, "Danzi_2025_OE_or_LPSStdev_outliers.narrow_adotto_boundaries.all_overlapping_loci.bed"),
     (adotto_catalog_loci_that_overlap_outlier_intervals_and_have_same_length_motifs, "Danzi_2025_OE_or_LPSStdev_outliers.narrow_adotto_boundaries.only_matching_motif_lengths.bed"),
+    (adotto_catalog_loci_that_overlap_outlier_intervals_and_have_same_length_motifs_replaced_with_LPS_motif, "Danzi_2025_OE_or_LPSStdev_outliers.narrow_adotto_boundaries.only_matching_motif_lengths_replaced_with_LPS_motif.bed"),
 ]:
     locus_list.sort(key=lambda x: (x[0], x[1], x[2]))
     with open(output_bed_path, "wt") as f:
