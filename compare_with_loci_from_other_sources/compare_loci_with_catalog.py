@@ -2,6 +2,7 @@
 the TRExplorer catalog (or some other main TR catalog like Adotto or Platinum).
 """
 
+
 import argparse
 import collections
 import intervaltree
@@ -10,13 +11,14 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import pyfaidx
+import random
 import re
 import seaborn as sns
 import tqdm
 
 from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 from str_analysis.utils.find_repeat_unit import find_repeat_unit_without_allowing_interruptions
-from str_analysis.utils.fasta_utils import compute_sequence_purity_stats
+from str_analysis.utils.find_motif_utils import compute_sequence_purity_stats
 
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF = 4
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH = 3
@@ -81,7 +83,7 @@ def main():
             p.error(f"More than one ':' found in {args.catalog_bed_path}")
         args.catalog_name, args.catalog_bed_path = args.catalog_bed_path.split(":")
     else:
-        args.catalog_name = re.sub(".bed(.b?gz)?$", os.path.basename(args.catalog_bed_path))
+        args.catalog_name = re.sub(".bed(.b?gz)?$", "", os.path.basename(args.catalog_bed_path))
 
     if not os.path.isfile(args.catalog_bed_path):
         p.error(f"File not found: {args.catalog_bed_path}")
@@ -105,7 +107,7 @@ def main():
             args.new_catalog[i] = path
             new_catalog_names.append(new_catalog_name)
         else:
-            new_catalog_names.append(re.sub(".bed(.b?gz)?$", os.path.basename(path)))
+            new_catalog_names.append(re.sub(".bed(.b?gz)?$", "", os.path.basename(path)))
 
         if not os.path.isfile(path):
             p.error(f"File not found: {path}")
@@ -211,7 +213,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
                 total_count["STRs"] += 1
             else:
                 total_count["VNTRs"] += 1
-            
+
 
     if args.print_stats >= 1:
         print("Summary:")
@@ -270,8 +272,8 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
     df1 = df[df[f"{new_catalog_name}_canonical_motif"].notna()]
     if len(df1) > 0:
         df1["motif_size"] = df1[f"{new_catalog_name}_canonical_motif"].str.len()
-        new_catalog_motif_size_distribution = collections.Counter(df1["motif_size"])    
-        new_catalog_motif_size_distribution2 = collections.Counter(df1[df1["overlap_score"] == 0]["motif_size"])    
+        new_catalog_motif_size_distribution = collections.Counter(df1["motif_size"])
+        new_catalog_motif_size_distribution2 = collections.Counter(df1[df1["overlap_score"] == 0]["motif_size"])
         catalog_map = {
             args.catalog_name: main_catalog_motif_size_distribution,
             new_catalog_name: new_catalog_motif_size_distribution,
@@ -312,59 +314,59 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
         # Use dual y-axes: left axis for first catalog (main), right axis for 2nd and 3rd catalogs
         motif_size_order = [f"{i}bp" for i in range(1, 25)] + ["25+"]
         catalog_names = list(catalog_map.keys())
-        
+
         fig, ax1 = plt.subplots(figsize=(14, 6))
         ax2 = ax1.twinx()
-        
+
         # Get data for each catalog
         x_positions = range(len(motif_size_order))
         bar_width = 0.25
-        
+
         # Plot first catalog (main) on left axis
         first_catalog_name = catalog_names[0]
         first_catalog_counts = [catalog_map[first_catalog_name].get(motif_size, 0) for motif_size in motif_size_order]
-        bars1 = ax1.bar([x - bar_width for x in x_positions], first_catalog_counts, width=bar_width, 
+        bars1 = ax1.bar([x - bar_width for x in x_positions], first_catalog_counts, width=bar_width,
                         label=first_catalog_name, color="cornflowerblue", alpha=0.8)
-        
+
         # Plot 2nd and 3rd catalogs on right axis
         if len(catalog_names) >= 2:
             second_catalog_name = catalog_names[1]
             second_catalog_counts = [catalog_map[second_catalog_name].get(motif_size, 0) for motif_size in motif_size_order]
             bars2 = ax2.bar(x_positions, second_catalog_counts, width=bar_width,
                            label=second_catalog_name, color="coral", alpha=0.8)
-        
+
         if len(catalog_names) >= 3:
             third_catalog_name = catalog_names[2]
             third_catalog_counts = [catalog_map[third_catalog_name].get(motif_size, 0) for motif_size in motif_size_order]
             bars3 = ax2.bar([x + bar_width for x in x_positions], third_catalog_counts, width=bar_width,
                            label=third_catalog_name, color="lightgreen", alpha=0.8)
-        
+
         # Set x-axis labels
         ax1.set_xticks(x_positions)
         ax1.set_xticklabels(motif_size_order, rotation=45, ha="right")
         ax1.set_xlabel("Motif size")
-        
+
         # Set y-axis labels and formatting
         ax1.set_ylabel(f"Count ({first_catalog_name})", color="cornflowerblue")
         ax1.tick_params(axis="y", labelcolor="cornflowerblue")
         ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
-        
+
         if len(catalog_names) >= 2:
             ax2.set_ylabel(f"Count ({catalog_names[1]})\nCount ({catalog_names[2]})", color="coral")
             ax2.tick_params(axis="y", labelcolor="coral")
             ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
-        
+
         # Styling
         ax1.spines["top"].set_visible(False)
         ax2.spines["top"].set_visible(False)
         ax1.grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray", alpha=0.5)
         ax2.grid(axis="y", linestyle="--", linewidth=0.5, color="lightgray", alpha=0.5)
-        
+
         # Combine legends
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(lines1 + lines2, labels1 + labels2, frameon=False, loc="best")
-        
+
         plt.title("Motif size distribution for each catalog", pad=10)
         plt.tight_layout()
         plt.savefig(f"{args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.motif_size_distribution.png")
@@ -417,64 +419,64 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
         # Use dual y-axes: left axis for first catalog (main), right axis for 2nd and 3rd catalogs
         repeat_count_order = [f"{i}x" for i in range(0, 11)] + ["11+"]
         catalog_names = list(catalog_map.keys())
-        
+
         fig, ax1 = plt.subplots(figsize=(14, 6))
         ax2 = ax1.twinx()
-        
+
         # Get data for each catalog
         x_positions = range(len(repeat_count_order))
         bar_width = 0.25
-        
+
         # Plot first catalog (main) on left axis
         first_catalog_name = catalog_names[0]
         first_catalog_counts = [catalog_map[first_catalog_name].get(repeat_count, 0) for repeat_count in repeat_count_order]
-        bars1 = ax1.bar([x - bar_width for x in x_positions], first_catalog_counts, width=bar_width, 
+        bars1 = ax1.bar([x - bar_width for x in x_positions], first_catalog_counts, width=bar_width,
                         label=first_catalog_name, color="cornflowerblue", alpha=0.8)
-        
+
         # Plot 2nd and 3rd catalogs on right axis
         if len(catalog_names) >= 2:
             second_catalog_name = catalog_names[1]
             second_catalog_counts = [catalog_map[second_catalog_name].get(repeat_count, 0) for repeat_count in repeat_count_order]
             bars2 = ax2.bar(x_positions, second_catalog_counts, width=bar_width,
                            label=second_catalog_name, color="coral", alpha=0.8)
-        
+
         if len(catalog_names) >= 3:
             third_catalog_name = catalog_names[2]
             third_catalog_counts = [catalog_map[third_catalog_name].get(repeat_count, 0) for repeat_count in repeat_count_order]
             bars3 = ax2.bar([x + bar_width for x in x_positions], third_catalog_counts, width=bar_width,
                            label=third_catalog_name, color="lightgreen", alpha=0.8)
-        
+
         # Set x-axis labels
         ax1.set_xticks(x_positions)
         ax1.set_xticklabels(repeat_count_order, rotation=45, ha="right")
         ax1.set_xlabel("Reference repeat count")
-        
+
         # Set y-axis labels and formatting
         ax1.set_ylabel(f"Count ({first_catalog_name})", color="cornflowerblue")
         ax1.tick_params(axis="y", labelcolor="cornflowerblue")
         ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
-        
+
         if len(catalog_names) >= 2:
             ax2.set_ylabel(f"Count ({catalog_names[1]})\nCount ({catalog_names[2]})", color="coral")
             ax2.tick_params(axis="y", labelcolor="coral")
             ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
-        
+
         # Styling
         ax1.spines["top"].set_visible(False)
         ax2.spines["top"].set_visible(False)
         ax1.grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray", alpha=0.5)
         ax2.grid(axis="y", linestyle="--", linewidth=0.5, color="lightgray", alpha=0.5)
-        
+
         # Combine legends
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(lines1 + lines2, labels1 + labels2, frameon=False, loc="best")
-        
+
         plt.title("Reference repeat count distribution for each catalog", pad=10)
         plt.tight_layout()
         plt.savefig(f"{args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.reference_repeat_count_distribution.png")
         print(f"Wrote reference repeat count distribution to {args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.reference_repeat_count_distribution.png")
-        plt.close()        
+        plt.close()
 
     # horizontal bar plot of the values in the 'overlap' column with color by 'motif_match' column
     plt.figure(figsize=(12, 6))
@@ -500,11 +502,11 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
     if new_catalog_has_motifs:
         alpha = 0.5
         motif_match_colors = {
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF]: (0.0, 0.7, 0.0, alpha),                     # green 
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH]: (0.95, 0.8, 0.1, alpha),             # yellow 
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SHORTER_MOTIF_IN_MAIN_CATALOG]: (0.95, 0.0, 0.0, alpha),  # light red 
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_LONGER_MOTIF_IN_MAIN_CATALOG]: (0.5, 0.0, 0.0, alpha),   # dark red 
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG]: (0.0, 0.0, 0.7, alpha),       #  blue 
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF]: (0.0, 0.7, 0.0, alpha),                     # green
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH]: (0.95, 0.8, 0.1, alpha),             # yellow
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SHORTER_MOTIF_IN_MAIN_CATALOG]: (0.95, 0.0, 0.0, alpha),  # light red
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_LONGER_MOTIF_IN_MAIN_CATALOG]: (0.5, 0.0, 0.0, alpha),   # dark red
+            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG]: (0.0, 0.0, 0.7, alpha),       #  blue
             MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_NEW_CATALOG]: (0.0, 0.0, 0.7, alpha),        #  blue
         }
 
@@ -531,7 +533,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
     handle_label_map = dict(zip(labels, handles))
     ordered_handles = [handle_label_map[label] for label in desired_order if label in handle_label_map]
     ordered_labels = [label for label in desired_order if label in handle_label_map]
-    
+
     plt.legend(ordered_handles, ordered_labels, title="", frameon=True)
     plt.gca().set_ylabel("")
     plt.gca().spines["top"].set_visible(False)
@@ -541,7 +543,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
     print(f"Wrote overlap distribution by motif match to {output_path}")
     plt.close()
 
-def load_main_catalog_loci(args):   
+def load_main_catalog_loci(args):
     print(f"Parsing {args.catalog_bed_path} to interval tree")
     main_catalog_loci = collections.defaultdict(intervaltree.IntervalTree)
     fopen = gzip.open if args.catalog_bed_path.endswith("gz") else open
@@ -595,7 +597,7 @@ def compute_overlap_score(main_catalog_interval, start_0based, end_1based, min_m
 
     if main_catalog_interval.begin == start_0based and main_catalog_interval.end == end_1based:
         return OVERLAP_SCORE_FOR_EXACT_MATCH
-    
+
     union_size = max(main_catalog_interval.end, end_1based) - min(main_catalog_interval.begin, start_0based)
     intersection_size = main_catalog_interval.overlap_size(start_0based, end_1based)
     if abs(intersection_size - union_size) <= 2*min_motif_size:
@@ -639,16 +641,307 @@ def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, m
     return was_match_found
 
 
-def get_purity_stats_for_locus(reference_fasta, chrom, start_0based, end_1based, motif):
-    if reference_fasta is not None:
-        chrom = "chr"+chrom.replace("chr", "")  # make sure chrom has "chr" prefix
-        reference_sequence = reference_fasta[chrom][start_0based:end_1based]
-        _, motif_purity, _ = compute_sequence_purity_stats(reference_sequence, motif)
-        _, motif_length_purity, _ = compute_sequence_purity_stats(reference_sequence, reference_sequence[:len(motif)])
+def compute_purity_of_optimal_motif_vs_length_of_random_sequence(min_sequence_length=14, max_sequence_length=1000, sequence_length_step=1, n_trials=1000, verbose=False):
+    random.seed(1)
+    sequence_length_to_max_purity_and_quality_score = collections.defaultdict(int)
+    for length in range(min_sequence_length, max_sequence_length, sequence_length_step):
+        max_purity = 0
+        max_quality = 0
+        for _ in range(n_trials): # N trials for each length
+            random_sequence = ''.join(random.choices("ACGT", k=length))
+            optimal_motif, motif_purity, quality = find_optimal_motif_length(random_sequence, length//2, verbose=False)
+            max_purity = max(max_purity, motif_purity)
+            max_quality = max(max_quality, quality)
+
+        if verbose:
+            print(f"{length:4d}bp   Max purity: {max_purity:.2f}     Max quality score: {max_quality:.2f}")
+
+        sequence_length_to_max_purity_and_quality_score[length] = (max_purity, max_quality)
+
+
+    return sequence_length_to_max_purity_and_quality_score
+
+"""Results:
+compute_purity_of_optimal_motif_vs_length_of_random_sequence(min_sequence_length=10, max_sequence_length=1001, sequence_length_step=10, n_trials=250, verbose=True)
+  10bp   Max purity: 0.83     Max quality score: 0.67
+  20bp   Max purity: 0.78     Max quality score: 0.56
+  30bp   Max purity: 0.67     Max quality score: 0.39
+  40bp   Max purity: 0.73     Max quality score: 0.50
+  50bp   Max purity: 0.62     Max quality score: 0.37
+  60bp   Max purity: 0.58     Max quality score: 0.32
+  70bp   Max purity: 0.59     Max quality score: 0.35
+  80bp   Max purity: 0.59     Max quality score: 0.35
+  90bp   Max purity: 0.58     Max quality score: 0.33
+ 100bp   Max purity: 0.51     Max quality score: 0.27
+ 110bp   Max purity: 0.48     Max quality score: 0.22
+ 120bp   Max purity: 0.49     Max quality score: 0.24
+ 130bp   Max purity: 0.47     Max quality score: 0.22
+ 140bp   Max purity: 0.48     Max quality score: 0.23
+ 150bp   Max purity: 0.45     Max quality score: 0.20
+ 160bp   Max purity: 0.47     Max quality score: 0.23
+ 170bp   Max purity: 0.48     Max quality score: 0.23
+ 180bp   Max purity: 0.45     Max quality score: 0.20
+ 190bp   Max purity: 0.44     Max quality score: 0.19
+ 200bp   Max purity: 0.44     Max quality score: 0.19
+ 210bp   Max purity: 0.44     Max quality score: 0.20
+ 220bp   Max purity: 0.42     Max quality score: 0.17
+ 230bp   Max purity: 0.44     Max quality score: 0.18
+ 240bp   Max purity: 0.43     Max quality score: 0.19
+ 250bp   Max purity: 0.41     Max quality score: 0.17
+ 260bp   Max purity: 0.43     Max quality score: 0.18
+ 270bp   Max purity: 0.42     Max quality score: 0.16
+ 280bp   Max purity: 0.41     Max quality score: 0.15
+ 290bp   Max purity: 0.43     Max quality score: 0.18
+ 300bp   Max purity: 0.40     Max quality score: 0.15
+ 310bp   Max purity: 0.44     Max quality score: 0.19
+ 320bp   Max purity: 0.41     Max quality score: 0.16
+ 330bp   Max purity: 0.41     Max quality score: 0.16
+ 340bp   Max purity: 0.39     Max quality score: 0.13
+ 350bp   Max purity: 0.43     Max quality score: 0.19
+ 360bp   Max purity: 0.39     Max quality score: 0.14
+ 370bp   Max purity: 0.38     Max quality score: 0.13
+ 380bp   Max purity: 0.40     Max quality score: 0.15
+ 390bp   Max purity: 0.39     Max quality score: 0.14
+ 400bp   Max purity: 0.42     Max quality score: 0.17
+ 410bp   Max purity: 0.39     Max quality score: 0.15
+ 420bp   Max purity: 0.38     Max quality score: 0.13
+ 430bp   Max purity: 0.39     Max quality score: 0.14
+ 440bp   Max purity: 0.38     Max quality score: 0.13
+ 450bp   Max purity: 0.37     Max quality score: 0.12
+ 460bp   Max purity: 0.40     Max quality score: 0.15
+ 470bp   Max purity: 0.39     Max quality score: 0.14
+ 480bp   Max purity: 0.37     Max quality score: 0.12
+ 490bp   Max purity: 0.40     Max quality score: 0.15
+ 500bp   Max purity: 0.39     Max quality score: 0.13
+ 510bp   Max purity: 0.36     Max quality score: 0.12
+ 520bp   Max purity: 0.37     Max quality score: 0.12
+ 530bp   Max purity: 0.37     Max quality score: 0.12
+ 540bp   Max purity: 0.38     Max quality score: 0.12
+ 550bp   Max purity: 0.38     Max quality score: 0.13
+ 560bp   Max purity: 0.38     Max quality score: 0.13
+ 570bp   Max purity: 0.37     Max quality score: 0.12
+ 580bp   Max purity: 0.38     Max quality score: 0.13
+ 590bp   Max purity: 0.37     Max quality score: 0.12
+ 600bp   Max purity: 0.37     Max quality score: 0.11
+ 610bp   Max purity: 0.37     Max quality score: 0.12
+ 620bp   Max purity: 0.37     Max quality score: 0.12
+ 630bp   Max purity: 0.37     Max quality score: 0.12
+ 640bp   Max purity: 0.37     Max quality score: 0.12
+ 650bp   Max purity: 0.39     Max quality score: 0.13
+ 660bp   Max purity: 0.36     Max quality score: 0.11
+ 670bp   Max purity: 0.37     Max quality score: 0.12
+ 680bp   Max purity: 0.36     Max quality score: 0.12
+ 690bp   Max purity: 0.35     Max quality score: 0.10
+ 700bp   Max purity: 0.37     Max quality score: 0.12
+ 710bp   Max purity: 0.36     Max quality score: 0.11
+ 720bp   Max purity: 0.36     Max quality score: 0.11
+ 730bp   Max purity: 0.36     Max quality score: 0.11
+ 740bp   Max purity: 0.36     Max quality score: 0.12
+ 750bp   Max purity: 0.35     Max quality score: 0.11
+ 760bp   Max purity: 0.36     Max quality score: 0.11
+ 770bp   Max purity: 0.36     Max quality score: 0.11
+ 780bp   Max purity: 0.37     Max quality score: 0.12
+ 790bp   Max purity: 0.37     Max quality score: 0.12
+ 800bp   Max purity: 0.35     Max quality score: 0.10
+ 810bp   Max purity: 0.35     Max quality score: 0.10
+ 820bp   Max purity: 0.37     Max quality score: 0.12
+ 830bp   Max purity: 0.35     Max quality score: 0.10
+ 840bp   Max purity: 0.34     Max quality score: 0.09
+ 850bp   Max purity: 0.37     Max quality score: 0.12
+ 860bp   Max purity: 0.35     Max quality score: 0.10
+ 870bp   Max purity: 0.35     Max quality score: 0.10
+ 880bp   Max purity: 0.35     Max quality score: 0.10
+ 890bp   Max purity: 0.34     Max quality score: 0.09
+ 900bp   Max purity: 0.34     Max quality score: 0.09
+ 910bp   Max purity: 0.35     Max quality score: 0.10
+ 920bp   Max purity: 0.35     Max quality score: 0.10
+ 930bp   Max purity: 0.36     Max quality score: 0.11
+ 940bp   Max purity: 0.35     Max quality score: 0.10
+ 950bp   Max purity: 0.34     Max quality score: 0.08
+ 960bp   Max purity: 0.34     Max quality score: 0.09
+ 970bp   Max purity: 0.35     Max quality score: 0.10
+ 980bp   Max purity: 0.35     Max quality score: 0.10
+ 990bp   Max purity: 0.36     Max quality score: 0.10
+1000bp   Max purity: 0.34     Max quality score: 0.08
+ """
+
+
+
+
+def find_optimal_motif_length_from_reference_fasta(reference_fasta, chrom, start_0based, end_1based, max_motif_length, verbose=False):
+    if reference_fasta is None:
+        return None, None
+
+    chrom = f"chr{chrom.replace('chr', '')}"  # make sure chrom has "chr" prefix
+    reference_sequence = reference_fasta[chrom][start_0based:end_1based]
+
+    max_motif_length = min(max_motif_length, (end_1based - start_0based)//2)
+    return find_optimal_motif_length(nucleotide_sequence=reference_sequence, max_motif_length=max_motif_length, verbose=verbose)
+
+
+def compute_motif_length_quality(motif_length, motif_length_vs_motif_and_purity):
+    optimal_motif_length_purities = []
+    other_motif_length_purities = []
+    for current_motif_length, (current_motif, purity) in motif_length_vs_motif_and_purity.items():
+        if current_motif_length >= motif_length and current_motif_length % motif_length == 0:
+            optimal_motif_length_purities.append(purity)
+        else:
+            other_motif_length_purities.append(purity)
+
+    optimal_motif_length_mean_purity = sum(optimal_motif_length_purities) / len(optimal_motif_length_purities)
+    if len(other_motif_length_purities) > 0:
+        other_motif_lengths_mean_purity = sum(other_motif_length_purities) / len(other_motif_length_purities)
     else:
-        motif_purity = None
-        motif_length_purity = None
-    return motif_purity, motif_length_purity
+        other_motif_lengths_mean_purity = 0.31  # this is the base-line quality score upper-bound (the average of the distribution is 0.25 and the upper-bound appears to be ~0.31)
+
+    quality_score = optimal_motif_length_mean_purity - other_motif_lengths_mean_purity
+
+    return max(0, quality_score)
+
+
+def find_optimal_motif_length(nucleotide_sequence, max_motif_length, verbose=False):
+    """Scan different motif lengths from 1 to max_motif_length to find the one that produces the highest
+    repeat purity with respect to the reference sequence at the given locus. For each motif length,
+    this method finds the most frequent motif of that length within the reference sequence, then constructs
+    a synthetic perfect repeat sequence of that motif (making it the same length as the reference sequence),
+    then computes purity of that motif length as the fraction of bases in the reference sequence that match the
+    previously constructed perfect repeat sequence of that motif.
+    """
+
+
+    #if verbose:
+    #    print("--------------------------------")
+    #    print(f"Sequence: {nucleotide_sequence}")
+
+    motif_length_vs_motif_and_purity = {}
+    for motif_length in range(1, max_motif_length+1):
+        _, motif_length_purity, most_common_motif = get_purity_stats_for_locus(
+            nucleotide_sequence=nucleotide_sequence, motif="A"*motif_length)
+        if motif_length_purity is None:
+            raise ValueError(f"Motif length {motif_length}bp purity is None for sequence: {nucleotide_sequence}")
+
+        motif_length_vs_motif_and_purity[len(most_common_motif)] = (most_common_motif, motif_length_purity)
+        #if verbose:
+        #    print(f"{motif_length:3d}bp: {motif_length_purity:.2f}    {most_common_motif}")
+
+    optimal_motif_length = max(
+        motif_length_vs_motif_and_purity, key=lambda motif_length: (motif_length_vs_motif_and_purity[motif_length][1], -motif_length))
+    optimal_motif, optimal_purity = motif_length_vs_motif_and_purity[optimal_motif_length]
+    optimal_motif_length_quality_score = compute_motif_length_quality(optimal_motif_length, motif_length_vs_motif_and_purity)
+
+    for shorter_motif_length in range(1, optimal_motif_length//2 + 1):
+        if optimal_motif_length % shorter_motif_length != 0:
+            # only consider shorter motif lengths that are factors of the current optimal motif length
+            continue
+
+        shorter_motif_length_quality_score = compute_motif_length_quality(shorter_motif_length, motif_length_vs_motif_and_purity)
+        if optimal_motif_length_quality_score - shorter_motif_length_quality_score < 0.03:
+            original_optimal_motif = optimal_motif
+            optimal_motif, optimal_purity = motif_length_vs_motif_and_purity[shorter_motif_length]
+            if verbose:
+                print(f"Replacing motif length {original_optimal_motif} ({optimal_motif_length}bp) which had quality {optimal_motif_length_quality_score} "
+                      f"with {optimal_motif} ({shorter_motif_length}bp) which has quality {shorter_motif_length_quality_score} ")
+                      #f"in sequence: {nucleotide_sequence}")
+            optimal_motif_length_quality_score = shorter_motif_length_quality_score
+            break
+
+    simplified_optimal_motif, _, _ = find_repeat_unit_without_allowing_interruptions(optimal_motif, allow_partial_repeats=False)
+    #if simplified_optimal_motif != optimal_motif:
+    #    print(f"WARNING: Simplified optimal motif {simplified_optimal_motif} != optimal motif {optimal_motif} for sequence: {nucleotide_sequence}")  # this happens occasionally due to edge cases
+
+    if verbose:
+        print(f"Optimal motif: {len(optimal_motif)}bp   purity: {optimal_purity:.2f}   quality: {optimal_motif_length_quality_score}   (null quality is: ) tried "
+              f"{len(motif_length_vs_motif_and_purity)} motif lengths, their average purity was: {sum([x[1] for x in motif_length_vs_motif_and_purity.values()]) / len(motif_length_vs_motif_and_purity):.2f}")
+
+    return simplified_optimal_motif, optimal_purity, optimal_motif_length_quality_score
+
+
+def get_purity_stats_for_locus(nucleotide_sequence, motif):
+    _, motif_purity, _ = compute_sequence_purity_stats(nucleotide_sequence, motif, include_partial_repeats=True)
+
+    # slice the reference sequence into subsequences of length len(motif) and then get the most common motif
+    end_index = len(nucleotide_sequence) - len(nucleotide_sequence) % len(motif)
+    if end_index == 0:
+        return None, None, None
+
+    sliced_motif_list = [nucleotide_sequence[i:i+len(motif)] for i in range(0, end_index, len(motif))]
+    if len(sliced_motif_list) == 0:
+        return None, None, None
+
+    most_common_motif = collections.Counter(sliced_motif_list).most_common(1)[0][0]
+    # remove the first occurrence of the most common motif from the sliced nucleotide sequence list
+    sliced_motif_list.remove(most_common_motif)
+    if len(sliced_motif_list) == 0:
+        return None, None, None
+
+    remaining_nucleotide_sequence = "".join(sliced_motif_list)
+    _, motif_length_purity, _ = compute_sequence_purity_stats(remaining_nucleotide_sequence, most_common_motif, include_partial_repeats=True)
+
+    return motif_purity, motif_length_purity, most_common_motif
+
+
+def get_purity_stats_for_locus_from_reference_fasta(reference_fasta, chrom, start_0based, end_1based, motif):
+    if reference_fasta is None:
+        return None, None, None
+
+    chrom = f"chr{chrom.replace('chr', '')}"  # make sure chrom has "chr" prefix
+    reference_sequence = reference_fasta[chrom][start_0based:end_1based]
+
+    return get_purity_stats_for_locus(nucleotide_sequence=reference_sequence, motif=motif)
+
+
+def compute_optimal_motif_match_score(
+        optimal_motif,
+        new_catalog_name,
+        new_catalog_motif,
+        main_catalog_name,
+        main_catalog_motif,
+):
+    if main_catalog_motif is None:
+        return f"absent from {main_catalog_name} catalog"
+
+    if new_catalog_motif is None:
+        return f"absent from {new_catalog_name} catalog"
+
+    main_catalog_canonical_motif = compute_canonical_motif(main_catalog_motif)
+    new_catalog_canonical_motif = compute_canonical_motif(new_catalog_motif)
+    optimal_canonical_motif = compute_canonical_motif(optimal_motif)
+    if len(new_catalog_motif) == len(main_catalog_motif):
+        common_motif_length = len(new_catalog_motif)
+        if main_catalog_canonical_motif == optimal_canonical_motif and new_catalog_canonical_motif == optimal_canonical_motif:
+            return "both match optimal motif"
+        elif main_catalog_canonical_motif == optimal_canonical_motif:
+            return f"both match optimal motif length, {main_catalog_name} matches optimal motif"
+        elif new_catalog_canonical_motif == optimal_canonical_motif:
+            return f"both match optimal motif length, {new_catalog_name} matches optimal motif"
+        else:
+            # both differ from the optimal motif seq
+            if common_motif_length == len(optimal_motif) and main_catalog_canonical_motif == new_catalog_canonical_motif:
+                return f"both match optimal motif length and have same motif, but motif differs from optimal motif"
+            elif common_motif_length == len(optimal_motif) and main_catalog_canonical_motif != new_catalog_canonical_motif:
+                return f"both match optimal motif length, but all 3 motifs differ"
+            else:
+                if common_motif_length > len(optimal_motif):
+                    return f"same motif length in both, but optimal motif length is shorter"
+                else:
+                    return f"same motif length in both, but optimal motif length is longer"
+    elif len(main_catalog_motif) == len(optimal_motif):
+        if main_catalog_canonical_motif == optimal_canonical_motif:
+            return f"only {main_catalog_name} has optimal motif"
+        else:
+            return f"only {main_catalog_name} has optimal motif length"
+    elif len(new_catalog_motif) == len(optimal_motif):
+        if new_catalog_canonical_motif == optimal_canonical_motif:
+            return f"only {new_catalog_name} has optimal motif"
+        else:
+            return f"only {new_catalog_name} has optimal motif length"
+    else:
+        if len(optimal_motif) > max(len(main_catalog_motif), len(new_catalog_motif)):
+            return f"all three differ in length, optimal motif is longest"
+        elif len(optimal_motif) < min(len(main_catalog_motif), len(new_catalog_motif)):
+            return f"all three differ in length, optimal motif is shortest"
+        else:
+            return f"all three differ in length, optimal motif length is in the middle"
 
 
 def compare_loci(
@@ -737,7 +1030,22 @@ def compare_loci(
         was_match_found = compute_match_summary(overlap_score, motif_match_score, canonical_motif, main_catalog_canonical_motif, main_catalog_name)
 
         reference_repeat_count = (end_1based - start_0based) // len(canonical_motif) if canonical_motif is not None else None
-        motif_purity, motif_length_purity = get_purity_stats_for_locus(reference_fasta, chrom, start_0based, end_1based, motif)
+
+        motif_purity, motif_length_purity, _ = get_purity_stats_for_locus_from_reference_fasta(reference_fasta, chrom, start_0based, end_1based, motif)
+        optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_optimal_motif_length_from_reference_fasta(
+            reference_fasta,
+            chrom,
+            start_0based,
+            end_1based,
+            max_motif_length=2 * (max(len(motif), len(main_catalog_canonical_motif)) if main_catalog_canonical_motif else len(motif)))
+
+        optimal_motif_match = compute_optimal_motif_match_score(
+            optimal_motif,
+            new_catalog_name,
+            motif,
+            main_catalog_name,
+            main_catalog_motif = closest_match_main_catalog_interval.data["motif"] if closest_match_main_catalog_interval is not None else None,
+        )
 
         output_row = {
             "chrom": chrom,
@@ -762,6 +1070,13 @@ def compare_loci(
             f"{new_catalog_name}_purity_of_motif": motif_purity,
             f"{new_catalog_name}_purity_of_motif_length": motif_length_purity,
 
+            "optimal_motif": optimal_motif,
+            "optimal_canonical_motif": compute_canonical_motif(optimal_motif),
+            "optimal_motif_length": len(optimal_motif),
+            "optimal_motif_purity": optimal_motif_purity,
+            "optimal_motif_quality_score": optimal_motif_quality_score,
+            "optimal_motif_match": optimal_motif_match,
+
             "overlap_score": overlap_score,
             "motif_match_score": motif_match_score,
             "overlap": OVERLAP_SCORE_MAP[overlap_score],
@@ -775,7 +1090,8 @@ def compare_loci(
             closest_match_motif = closest_match_main_catalog_interval.data["motif"]
             closest_match_canonical_motif = closest_match_main_catalog_interval.data["canonical_motif"]
             closest_match_reference_region = f"{chrom}:{closest_match_start_0based}-{closest_match_end_1based}"
-            closest_match_motif_purity, closest_match_motif_length_purity = get_purity_stats_for_locus(reference_fasta, chrom, closest_match_start_0based, closest_match_end_1based, closest_match_motif)
+            closest_match_motif_purity, closest_match_motif_length_purity, _ = get_purity_stats_for_locus_from_reference_fasta(
+                reference_fasta, chrom, closest_match_start_0based, closest_match_end_1based, closest_match_motif)
 
             output_row.update({
                 f"{main_catalog_name}_start_0based": closest_match_start_0based,
@@ -804,10 +1120,11 @@ def compare_loci(
                 main_catalog_motif = main_catalog_interval.data["motif"]
                 main_catalog_reference_region = f"{chrom}:{main_catalog_interval.begin}-{main_catalog_interval.end}"
                 main_catalog_reference_repeat_count = (main_catalog_interval.end - main_catalog_interval.begin) // len(main_catalog_canonical_motif)
-                main_catalog_motif_purity, main_catalog_motif_length_purity = get_purity_stats_for_locus(reference_fasta, chrom, main_catalog_interval.begin, main_catalog_interval.end, main_catalog_motif)
+                main_catalog_motif_purity, main_catalog_motif_length_purity, _ = get_purity_stats_for_locus_from_reference_fasta(
+                    reference_fasta, chrom, main_catalog_interval.begin, main_catalog_interval.end, main_catalog_motif)
                 output_rows.append({
                     "chrom": chrom,
-                    
+
                     "start_0based": main_catalog_interval.begin,
                     "end_1based": main_catalog_interval.end,
                     "motif": main_catalog_motif,
@@ -835,7 +1152,7 @@ def compare_loci(
 
     if f is not None:
         f.close()
-    
+
     return pd.DataFrame(output_rows)
 
 
