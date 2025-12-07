@@ -18,7 +18,7 @@ import tqdm
 
 from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 from str_analysis.utils.find_repeat_unit import find_repeat_unit_without_allowing_interruptions
-from str_analysis.utils.find_motif_utils import compute_sequence_purity_stats
+from str_analysis.utils.find_motif_utils import find_optimal_motif_length_for_interval, compute_motif_length_purity_for_interval, compute_motif_purity_for_interval
 
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF = 4
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH = 3
@@ -641,253 +641,6 @@ def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, m
     return was_match_found
 
 
-def compute_purity_of_optimal_motif_vs_length_of_random_sequence(min_sequence_length=14, max_sequence_length=1000, sequence_length_step=1, n_trials=1000, verbose=False):
-    random.seed(1)
-    sequence_length_to_max_purity_and_quality_score = collections.defaultdict(int)
-    for length in range(min_sequence_length, max_sequence_length, sequence_length_step):
-        max_purity = 0
-        max_quality = 0
-        for _ in range(n_trials): # N trials for each length
-            random_sequence = ''.join(random.choices("ACGT", k=length))
-            optimal_motif, motif_purity, quality = find_optimal_motif_length(random_sequence, length//2, verbose=False)
-            max_purity = max(max_purity, motif_purity)
-            max_quality = max(max_quality, quality)
-
-        if verbose:
-            print(f"{length:4d}bp   Max purity: {max_purity:.2f}     Max quality score: {max_quality:.2f}")
-
-        sequence_length_to_max_purity_and_quality_score[length] = (max_purity, max_quality)
-
-
-    return sequence_length_to_max_purity_and_quality_score
-
-"""Results:
-compute_purity_of_optimal_motif_vs_length_of_random_sequence(min_sequence_length=10, max_sequence_length=1001, sequence_length_step=10, n_trials=250, verbose=True)
-  10bp   Max purity: 0.83     Max quality score: 0.67
-  20bp   Max purity: 0.78     Max quality score: 0.56
-  30bp   Max purity: 0.67     Max quality score: 0.39
-  40bp   Max purity: 0.73     Max quality score: 0.50
-  50bp   Max purity: 0.62     Max quality score: 0.37
-  60bp   Max purity: 0.58     Max quality score: 0.32
-  70bp   Max purity: 0.59     Max quality score: 0.35
-  80bp   Max purity: 0.59     Max quality score: 0.35
-  90bp   Max purity: 0.58     Max quality score: 0.33
- 100bp   Max purity: 0.51     Max quality score: 0.27
- 110bp   Max purity: 0.48     Max quality score: 0.22
- 120bp   Max purity: 0.49     Max quality score: 0.24
- 130bp   Max purity: 0.47     Max quality score: 0.22
- 140bp   Max purity: 0.48     Max quality score: 0.23
- 150bp   Max purity: 0.45     Max quality score: 0.20
- 160bp   Max purity: 0.47     Max quality score: 0.23
- 170bp   Max purity: 0.48     Max quality score: 0.23
- 180bp   Max purity: 0.45     Max quality score: 0.20
- 190bp   Max purity: 0.44     Max quality score: 0.19
- 200bp   Max purity: 0.44     Max quality score: 0.19
- 210bp   Max purity: 0.44     Max quality score: 0.20
- 220bp   Max purity: 0.42     Max quality score: 0.17
- 230bp   Max purity: 0.44     Max quality score: 0.18
- 240bp   Max purity: 0.43     Max quality score: 0.19
- 250bp   Max purity: 0.41     Max quality score: 0.17
- 260bp   Max purity: 0.43     Max quality score: 0.18
- 270bp   Max purity: 0.42     Max quality score: 0.16
- 280bp   Max purity: 0.41     Max quality score: 0.15
- 290bp   Max purity: 0.43     Max quality score: 0.18
- 300bp   Max purity: 0.40     Max quality score: 0.15
- 310bp   Max purity: 0.44     Max quality score: 0.19
- 320bp   Max purity: 0.41     Max quality score: 0.16
- 330bp   Max purity: 0.41     Max quality score: 0.16
- 340bp   Max purity: 0.39     Max quality score: 0.13
- 350bp   Max purity: 0.43     Max quality score: 0.19
- 360bp   Max purity: 0.39     Max quality score: 0.14
- 370bp   Max purity: 0.38     Max quality score: 0.13
- 380bp   Max purity: 0.40     Max quality score: 0.15
- 390bp   Max purity: 0.39     Max quality score: 0.14
- 400bp   Max purity: 0.42     Max quality score: 0.17
- 410bp   Max purity: 0.39     Max quality score: 0.15
- 420bp   Max purity: 0.38     Max quality score: 0.13
- 430bp   Max purity: 0.39     Max quality score: 0.14
- 440bp   Max purity: 0.38     Max quality score: 0.13
- 450bp   Max purity: 0.37     Max quality score: 0.12
- 460bp   Max purity: 0.40     Max quality score: 0.15
- 470bp   Max purity: 0.39     Max quality score: 0.14
- 480bp   Max purity: 0.37     Max quality score: 0.12
- 490bp   Max purity: 0.40     Max quality score: 0.15
- 500bp   Max purity: 0.39     Max quality score: 0.13
- 510bp   Max purity: 0.36     Max quality score: 0.12
- 520bp   Max purity: 0.37     Max quality score: 0.12
- 530bp   Max purity: 0.37     Max quality score: 0.12
- 540bp   Max purity: 0.38     Max quality score: 0.12
- 550bp   Max purity: 0.38     Max quality score: 0.13
- 560bp   Max purity: 0.38     Max quality score: 0.13
- 570bp   Max purity: 0.37     Max quality score: 0.12
- 580bp   Max purity: 0.38     Max quality score: 0.13
- 590bp   Max purity: 0.37     Max quality score: 0.12
- 600bp   Max purity: 0.37     Max quality score: 0.11
- 610bp   Max purity: 0.37     Max quality score: 0.12
- 620bp   Max purity: 0.37     Max quality score: 0.12
- 630bp   Max purity: 0.37     Max quality score: 0.12
- 640bp   Max purity: 0.37     Max quality score: 0.12
- 650bp   Max purity: 0.39     Max quality score: 0.13
- 660bp   Max purity: 0.36     Max quality score: 0.11
- 670bp   Max purity: 0.37     Max quality score: 0.12
- 680bp   Max purity: 0.36     Max quality score: 0.12
- 690bp   Max purity: 0.35     Max quality score: 0.10
- 700bp   Max purity: 0.37     Max quality score: 0.12
- 710bp   Max purity: 0.36     Max quality score: 0.11
- 720bp   Max purity: 0.36     Max quality score: 0.11
- 730bp   Max purity: 0.36     Max quality score: 0.11
- 740bp   Max purity: 0.36     Max quality score: 0.12
- 750bp   Max purity: 0.35     Max quality score: 0.11
- 760bp   Max purity: 0.36     Max quality score: 0.11
- 770bp   Max purity: 0.36     Max quality score: 0.11
- 780bp   Max purity: 0.37     Max quality score: 0.12
- 790bp   Max purity: 0.37     Max quality score: 0.12
- 800bp   Max purity: 0.35     Max quality score: 0.10
- 810bp   Max purity: 0.35     Max quality score: 0.10
- 820bp   Max purity: 0.37     Max quality score: 0.12
- 830bp   Max purity: 0.35     Max quality score: 0.10
- 840bp   Max purity: 0.34     Max quality score: 0.09
- 850bp   Max purity: 0.37     Max quality score: 0.12
- 860bp   Max purity: 0.35     Max quality score: 0.10
- 870bp   Max purity: 0.35     Max quality score: 0.10
- 880bp   Max purity: 0.35     Max quality score: 0.10
- 890bp   Max purity: 0.34     Max quality score: 0.09
- 900bp   Max purity: 0.34     Max quality score: 0.09
- 910bp   Max purity: 0.35     Max quality score: 0.10
- 920bp   Max purity: 0.35     Max quality score: 0.10
- 930bp   Max purity: 0.36     Max quality score: 0.11
- 940bp   Max purity: 0.35     Max quality score: 0.10
- 950bp   Max purity: 0.34     Max quality score: 0.08
- 960bp   Max purity: 0.34     Max quality score: 0.09
- 970bp   Max purity: 0.35     Max quality score: 0.10
- 980bp   Max purity: 0.35     Max quality score: 0.10
- 990bp   Max purity: 0.36     Max quality score: 0.10
-1000bp   Max purity: 0.34     Max quality score: 0.08
- """
-
-
-
-
-def find_optimal_motif_length_from_reference_fasta(reference_fasta, chrom, start_0based, end_1based, max_motif_length, verbose=False):
-    if reference_fasta is None:
-        return None, None
-
-    chrom = f"chr{chrom.replace('chr', '')}"  # make sure chrom has "chr" prefix
-    reference_sequence = reference_fasta[chrom][start_0based:end_1based]
-
-    max_motif_length = min(max_motif_length, (end_1based - start_0based)//2)
-    return find_optimal_motif_length(nucleotide_sequence=reference_sequence, max_motif_length=max_motif_length, verbose=verbose)
-
-
-def compute_motif_length_quality(motif_length, motif_length_vs_motif_and_purity):
-    optimal_motif_length_purities = []
-    other_motif_length_purities = []
-    for current_motif_length, (current_motif, purity) in motif_length_vs_motif_and_purity.items():
-        if current_motif_length >= motif_length and current_motif_length % motif_length == 0:
-            optimal_motif_length_purities.append(purity)
-        else:
-            other_motif_length_purities.append(purity)
-
-    optimal_motif_length_mean_purity = sum(optimal_motif_length_purities) / len(optimal_motif_length_purities)
-    if len(other_motif_length_purities) > 0:
-        other_motif_lengths_mean_purity = sum(other_motif_length_purities) / len(other_motif_length_purities)
-    else:
-        other_motif_lengths_mean_purity = 0.31  # this is the base-line quality score upper-bound (the average of the distribution is 0.25 and the upper-bound appears to be ~0.31)
-
-    quality_score = optimal_motif_length_mean_purity - other_motif_lengths_mean_purity
-
-    return max(0, quality_score)
-
-
-def find_optimal_motif_length(nucleotide_sequence, max_motif_length, verbose=False):
-    """Scan different motif lengths from 1 to max_motif_length to find the one that produces the highest
-    repeat purity with respect to the reference sequence at the given locus. For each motif length,
-    this method finds the most frequent motif of that length within the reference sequence, then constructs
-    a synthetic perfect repeat sequence of that motif (making it the same length as the reference sequence),
-    then computes purity of that motif length as the fraction of bases in the reference sequence that match the
-    previously constructed perfect repeat sequence of that motif.
-    """
-
-
-    #if verbose:
-    #    print("--------------------------------")
-    #    print(f"Sequence: {nucleotide_sequence}")
-
-    motif_length_vs_motif_and_purity = {}
-    for motif_length in range(1, max_motif_length+1):
-        _, motif_length_purity, most_common_motif = get_purity_stats_for_locus(
-            nucleotide_sequence=nucleotide_sequence, motif="A"*motif_length)
-        if motif_length_purity is None:
-            raise ValueError(f"Motif length {motif_length}bp purity is None for sequence: {nucleotide_sequence}")
-
-        motif_length_vs_motif_and_purity[len(most_common_motif)] = (most_common_motif, motif_length_purity)
-        #if verbose:
-        #    print(f"{motif_length:3d}bp: {motif_length_purity:.2f}    {most_common_motif}")
-
-    optimal_motif_length = max(
-        motif_length_vs_motif_and_purity, key=lambda motif_length: (motif_length_vs_motif_and_purity[motif_length][1], -motif_length))
-    optimal_motif, optimal_purity = motif_length_vs_motif_and_purity[optimal_motif_length]
-    optimal_motif_length_quality_score = compute_motif_length_quality(optimal_motif_length, motif_length_vs_motif_and_purity)
-
-    for shorter_motif_length in range(1, optimal_motif_length//2 + 1):
-        if optimal_motif_length % shorter_motif_length != 0:
-            # only consider shorter motif lengths that are factors of the current optimal motif length
-            continue
-
-        shorter_motif_length_quality_score = compute_motif_length_quality(shorter_motif_length, motif_length_vs_motif_and_purity)
-        if optimal_motif_length_quality_score - shorter_motif_length_quality_score < 0.03:
-            original_optimal_motif = optimal_motif
-            optimal_motif, optimal_purity = motif_length_vs_motif_and_purity[shorter_motif_length]
-            if verbose:
-                print(f"Replacing motif length {original_optimal_motif} ({optimal_motif_length}bp) which had quality {optimal_motif_length_quality_score} "
-                      f"with {optimal_motif} ({shorter_motif_length}bp) which has quality {shorter_motif_length_quality_score} ")
-                      #f"in sequence: {nucleotide_sequence}")
-            optimal_motif_length_quality_score = shorter_motif_length_quality_score
-            break
-
-    simplified_optimal_motif, _, _ = find_repeat_unit_without_allowing_interruptions(optimal_motif, allow_partial_repeats=False)
-    #if simplified_optimal_motif != optimal_motif:
-    #    print(f"WARNING: Simplified optimal motif {simplified_optimal_motif} != optimal motif {optimal_motif} for sequence: {nucleotide_sequence}")  # this happens occasionally due to edge cases
-
-    if verbose:
-        print(f"Optimal motif: {len(optimal_motif)}bp   purity: {optimal_purity:.2f}   quality: {optimal_motif_length_quality_score}   (null quality is: ) tried "
-              f"{len(motif_length_vs_motif_and_purity)} motif lengths, their average purity was: {sum([x[1] for x in motif_length_vs_motif_and_purity.values()]) / len(motif_length_vs_motif_and_purity):.2f}")
-
-    return simplified_optimal_motif, optimal_purity, optimal_motif_length_quality_score
-
-
-def get_purity_stats_for_locus(nucleotide_sequence, motif):
-    _, motif_purity, _ = compute_sequence_purity_stats(nucleotide_sequence, motif, include_partial_repeats=True)
-
-    # slice the reference sequence into subsequences of length len(motif) and then get the most common motif
-    end_index = len(nucleotide_sequence) - len(nucleotide_sequence) % len(motif)
-    if end_index == 0:
-        return None, None, None
-
-    sliced_motif_list = [nucleotide_sequence[i:i+len(motif)] for i in range(0, end_index, len(motif))]
-    if len(sliced_motif_list) == 0:
-        return None, None, None
-
-    most_common_motif = collections.Counter(sliced_motif_list).most_common(1)[0][0]
-    # remove the first occurrence of the most common motif from the sliced nucleotide sequence list
-    sliced_motif_list.remove(most_common_motif)
-    if len(sliced_motif_list) == 0:
-        return None, None, None
-
-    remaining_nucleotide_sequence = "".join(sliced_motif_list)
-    _, motif_length_purity, _ = compute_sequence_purity_stats(remaining_nucleotide_sequence, most_common_motif, include_partial_repeats=True)
-
-    return motif_purity, motif_length_purity, most_common_motif
-
-
-def get_purity_stats_for_locus_from_reference_fasta(reference_fasta, chrom, start_0based, end_1based, motif):
-    if reference_fasta is None:
-        return None, None, None
-
-    chrom = f"chr{chrom.replace('chr', '')}"  # make sure chrom has "chr" prefix
-    reference_sequence = reference_fasta[chrom][start_0based:end_1based]
-
-    return get_purity_stats_for_locus(nucleotide_sequence=reference_sequence, motif=motif)
 
 
 def compute_optimal_motif_match_score(
@@ -942,6 +695,14 @@ def compute_optimal_motif_match_score(
             return f"all three differ in length, optimal motif is shortest"
         else:
             return f"all three differ in length, optimal motif length is in the middle"
+
+def compute_purity_stats_for_interval(reference_fasta, chrom, start_0based, end_1based, motif):
+    motif_length_purity, most_common_motif = compute_motif_length_purity_for_interval(
+        reference_fasta, chrom, start_0based, end_1based, len(motif))
+    fraction_pure_bases, distance = compute_motif_purity_for_interval(
+        reference_fasta, chrom, start_0based, end_1based, motif)
+
+    return fraction_pure_bases, motif_length_purity, most_common_motif
 
 
 def compare_loci(
@@ -1031,8 +792,8 @@ def compare_loci(
 
         reference_repeat_count = (end_1based - start_0based) // len(canonical_motif) if canonical_motif is not None else None
 
-        motif_purity, motif_length_purity, _ = get_purity_stats_for_locus_from_reference_fasta(reference_fasta, chrom, start_0based, end_1based, motif)
-        optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_optimal_motif_length_from_reference_fasta(
+        motif_purity, motif_length_purity, _ = compute_purity_stats_for_interval(reference_fasta, chrom, start_0based, end_1based, motif)
+        optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_optimal_motif_length_for_interval(
             reference_fasta,
             chrom,
             start_0based,
@@ -1090,7 +851,7 @@ def compare_loci(
             closest_match_motif = closest_match_main_catalog_interval.data["motif"]
             closest_match_canonical_motif = closest_match_main_catalog_interval.data["canonical_motif"]
             closest_match_reference_region = f"{chrom}:{closest_match_start_0based}-{closest_match_end_1based}"
-            closest_match_motif_purity, closest_match_motif_length_purity, _ = get_purity_stats_for_locus_from_reference_fasta(
+            closest_match_motif_purity, closest_match_motif_length_purity, _ = compute_purity_stats_for_interval(
                 reference_fasta, chrom, closest_match_start_0based, closest_match_end_1based, closest_match_motif)
 
             output_row.update({
@@ -1120,7 +881,7 @@ def compare_loci(
                 main_catalog_motif = main_catalog_interval.data["motif"]
                 main_catalog_reference_region = f"{chrom}:{main_catalog_interval.begin}-{main_catalog_interval.end}"
                 main_catalog_reference_repeat_count = (main_catalog_interval.end - main_catalog_interval.begin) // len(main_catalog_canonical_motif)
-                main_catalog_motif_purity, main_catalog_motif_length_purity, _ = get_purity_stats_for_locus_from_reference_fasta(
+                main_catalog_motif_purity, main_catalog_motif_length_purity, _ = compute_purity_stats_for_interval(
                     reference_fasta, chrom, main_catalog_interval.begin, main_catalog_interval.end, main_catalog_motif)
                 output_rows.append({
                     "chrom": chrom,
