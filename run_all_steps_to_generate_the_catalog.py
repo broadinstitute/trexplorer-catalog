@@ -351,11 +351,8 @@ EOF
 
     # add variation cluster annotations to the catalog
     if args.variation_clusters_bed:
-        variation_clusters_release_filename = f"{args.variation_clusters_output_prefix}.TRGT.bed.gz"
         variation_clusters_and_isolated_TRs_release_filename = args.variation_clusters_output_prefix.replace(
             "variation_clusters", "variation_clusters_and_isolated_TRs") + ".TRGT.bed.gz"
-
-        assert variation_clusters_and_isolated_TRs_release_filename != variation_clusters_release_filename
 
         run(f"""python3 {base_dir}/scripts/add_variation_cluster_annotations_to_catalog.py \
             --verbose \
@@ -365,32 +362,25 @@ EOF
             {annotated_catalog_path}""", step_number=10)
 
         run(f"mv {output_prefix}.EH.with_annotations.with_variation_clusters.json.gz {annotated_catalog_path}", step_number=10)
-        run(f"cp {args.variation_clusters_bed} {variation_clusters_release_filename}", step_number=10)
 
         run(f"""python3 {base_dir}/scripts/generate_TRGT_catalog_with_isolated_repeats_and_variation_clusters.py \
             -o {variation_clusters_and_isolated_TRs_release_filename} \
             {args.variation_clusters_bed} \
             {annotated_catalog_path}""", step_number=11)
 
-        release_files.append(variation_clusters_release_filename)
         release_files.append(variation_clusters_and_isolated_TRs_release_filename)
 
-        run(f"python3 {base_dir}/scripts/convert_trgt_catalog_to_longtr_format.py "
-            f"--known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} "
-            f"{variation_clusters_release_filename}", step_number=12)
-        run(f"python3 {base_dir}/scripts/convert_trgt_catalog_to_longtr_format.py "
-            f"--known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} "
-            f"{variation_clusters_and_isolated_TRs_release_filename}", step_number=13)
+        run(f"python3 {base_dir}/scripts/convert_trgt_catalog_to_longtr_format.py {variation_clusters_and_isolated_TRs_release_filename}",
+            step_number=12)
 
-        release_files.append(variation_clusters_release_filename.replace(".TRGT.bed.gz", ".LongTR.bed.gz"))
         release_files.append(variation_clusters_and_isolated_TRs_release_filename.replace(".TRGT.bed.gz", ".LongTR.bed.gz"))
 
     # add allele frequencies to the catalog
     run(f"""python3 -u {base_dir}/scripts/add_allele_frequency_annotations.py \
             --add-t2t-assembly-frequencies-to-overlapping-loci \
-            -o {annotated_catalog_path}.with_allele_frequencies.json.gz  {annotated_catalog_path}""", step_number=14)
+            -o {annotated_catalog_path}.with_allele_frequencies.json.gz  {annotated_catalog_path}""", step_number=13)
 
-    run(f"mv {annotated_catalog_path}.with_allele_frequencies.json.gz {annotated_catalog_path}", step_number=14)
+    run(f"mv {annotated_catalog_path}.with_allele_frequencies.json.gz {annotated_catalog_path}", step_number=13)
 
     # add AoU1027 annotations
     if args.aou1027_annotations:
@@ -398,9 +388,9 @@ EOF
             --output-catalog-json-path {output_prefix}.EH.with_annotations.with_AoU_annotations.json.gz \
             --known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} \
             {args.aou1027_annotations} \
-            {annotated_catalog_path}""", step_number=15)
+            {annotated_catalog_path}""", step_number=14)
 
-        run(f"mv {output_prefix}.EH.with_annotations.with_AoU_annotations.json.gz {annotated_catalog_path}", step_number=15)
+        run(f"mv {output_prefix}.EH.with_annotations.with_AoU_annotations.json.gz {annotated_catalog_path}", step_number=14)
 
     # TODO: add HPRC256 and TenK10K annotations?
 

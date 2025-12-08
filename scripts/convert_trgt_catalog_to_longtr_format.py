@@ -7,46 +7,47 @@ import argparse
 import collections
 import gzip
 import os
-import simplejson as json
 import re
-import sys
 import tqdm
 
 
-def compute_dominant_motif(info_fields_dict, known_pathogenic_reference_regions_lookup):
+def parse_info_field(info_field):
+    """Parse a TRGT catalog info field into a python dictionary"""
+
+    result = {}
+    for key_value in info_field.split(";"):
+        key_value = key_value.split("=")
+        if len(key_value) != 2:
+            raise ValueError(f"Invalid key-value pair '{key_value}' in line {info_field}")
+        key, value = key_value
+        result[key] = value
+    return result
+
+
+def compute_dominant_motif(info_field_dict):
     """Compute the dominant motif for a TR locus. For compound definitions (those that span multiple
-    adjacent TRs), this is either the longest motif among constituent TR (for known disease-associated loci) or
-    the motif length of the constituent TR that spans the largest interval (for all other loci).
+    adjacent TRs), this is the motif of the constituent TR that spans the largest interval (for all other loci).
 
     Args:
-        info_fields_dict (dict): A dictionary of info fields for a TR locus
-        known_pathogenic_reference_regions_lookup (dict): A dictionary mapping locus IDs to reference regions for all
-            known disease-associated loci
+        info_field_dict (dict): A dictionary of info fields for a TR locus
 
     Return:
         str: The dominant motif for the TR locus.
     """
     motifs = []
-    for locus_id in info_fields_dict["ID"].split(","):
-        if locus_id in known_pathogenic_reference_regions_lookup:
-            # get the motif length
-            _, dominant_motif = max((len(motif), motif) for motif in info_fields_dict["MOTIFS"].split(","))
-            motifs.append((10**6 + len(dominant_motif), dominant_motif))
-        elif locus_id.count("-") == 3:
-            chrom, start_0based, end, motif = locus_id.split("-")
-            motifs.append((int(end) - int(start_0based), motif))
-        else:
+    for locus_id in info_field_dict["ID"].split(","):
+        if locus_id.count("-") != 3:
             raise ValueError(f"Unexpected locus_id '{locus_id}'")
 
+        chrom, start_0based, end, motif = locus_id.split("-")
+        motifs.append((int(end) - int(start_0based), motif))
+        
     _, dominant_motif = max(motifs)
     return dominant_motif
 
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, description=__doc__)
-    parser.add_argument("--known-pathogenic-loci-json-path", required=True, help="Path of ExpansionHunter catalog "
-                        "containing known pathogenic loci. This is used to retrieve the original locus boundaries for "
-                        "these loci since their IDs don't contain these coordinates the way that IDs of other loci do.")
     parser.add_argument("-o", "--output-bed-path", help="Path of output BED file.")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--show-progress-bar", action="store_true", help="Show a progress bar")
@@ -63,19 +64,6 @@ def main():
     elif not args.output_bed_path.endswith(".bed"):
         parser.error("--output-bed-path must have a '.bed' suffix")
 
-    fopen = gzip.open if args.known_pathogenic_loci_json_path.endswith("gz") else open
-    with fopen(args.known_pathogenic_loci_json_path, "rt") as f:
-        known_pathogenic_loci = json.load(f)
-        known_pathogenic_reference_regions_lookup = {}
-        for locus in known_pathogenic_loci:
-            if isinstance(locus["ReferenceRegion"], list):
-                assert isinstance(locus["VariantId"], list)
-                assert len(locus["ReferenceRegion"]) == len(locus["VariantId"])
-                for variant_id, reference_region in zip(locus["VariantId"], locus["ReferenceRegion"]):
-                    known_pathogenic_reference_regions_lookup[variant_id] = reference_region
-            else:
-                known_pathogenic_reference_regions_lookup[locus["LocusId"]] = locus["ReferenceRegion"]
-
     counter = collections.Counter()
     output_bed_file = open(args.output_bed_path, "wt")
     fopen = gzip.open if args.input_trgt_catalog_bed_path.endswith("gz") else open
@@ -89,7 +77,6 @@ def main():
             chrom = fields[0]
             start_0based = int(fields[1])
             end_1based = int(fields[2])
-            info_fields = fields[3]
 
             if start_0based + 1 >= end_1based:
                 # avoid "Region has a STOP <= START" error
@@ -98,27 +85,16 @@ def main():
                     print(f"WARNING: Skipping record #{counter['skipped']} because the interval has width {end_1based - start_0based}bp")
                 continue
 
-            info_fields_dict = {}
-            for key_value in info_fields.split(";"):
-                key_value = key_value.split("=")
-                if len(key_value) != 2:
-                    print(f"WARNING: skipping invalid key-value pair '{key_value}' in line {fields}")
-                    continue
-                key, value = key_value
-                info_fields_dict[key] = value
-
-            dominant_motif = compute_dominant_motif(
-                info_fields_dict, known_pathogenic_reference_regions_lookup)
+            info_field_dict = parse_info_field(fields[3])
+            motif = compute_dominant_motif(info_field_dict)
 
             counter["output"] += 1
             output_bed_file.write("\t".join(map(str, [
                 chrom,
-                start_0based + 1,  # LongTR BED files use 1-based coords.
+                start_0based + 1,  # LongTR BED files use 1-based coords
                 end_1based,
-                len(dominant_motif),
-                round((end_1based - start_0based)/len(dominant_motif), 3),
-                info_fields_dict["ID"],
-                dominant_motif,
+                motif,
+                info_field_dict["ID"],
             ])) + "\n")
 
     os.system(f"bgzip -f {args.output_bed_path}")

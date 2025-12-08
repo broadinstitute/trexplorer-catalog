@@ -61,6 +61,7 @@ def main():
     locus_ids_in_variation_clusters = set()
     locus_ids_isolated_repeats = set()
     output_bed_file = open(args.output_bed_path, "wt")
+    output_row_counter = 0
     fopen = gzip.open if args.input_isolated_repeats_and_variation_clusters_bed_path.endswith("gz") else open
     with fopen(args.input_isolated_repeats_and_variation_clusters_bed_path, "rt") as f:
         if args.show_progress_bar:
@@ -78,15 +79,15 @@ def main():
                 if locus_id in locus_ids_in_variation_clusters:
                     raise ValueError(f"locus_id '{locus_id}' occurs more than once")
 
-
-            if "VC" in info_field_dict["STRUC"]:
-                locus_ids_in_variation_clusters.add(locus_id)
-            elif "TR" in info_field_dict["STRUC"]:
-                locus_ids_isolated_repeats.add(locus_id)
-            else:
-                raise ValueError(f"STRUC does not contain either 'VC' or 'TR' in line {fields}")
+                if "VC" in info_field_dict["STRUC"]:
+                    locus_ids_in_variation_clusters.add(locus_id)
+                elif "TR" in info_field_dict["STRUC"]:
+                    locus_ids_isolated_repeats.add(locus_id)
+                else:
+                    raise ValueError(f"STRUC does not contain either 'VC' or 'TR' in line {fields}")
 
             output_bed_file.write(line)
+            output_row_counter += 1
 
     all_locus_ids_in_variation_clusters_file = locus_ids_in_variation_clusters | locus_ids_isolated_repeats
     print(f"Parsed {len(locus_ids_in_variation_clusters):,d} variation clusters "
@@ -108,6 +109,7 @@ def main():
                 info_field_dict["STRUC"] = f"<TR:FILTERED{filtered_tr_counter}>"
                 output_row[3] = ";".join(f"{key}={value}" for key, value in info_field_dict.items())
                 output_bed_file.write("\t".join(map(str, output_row)) + "\n")
+                output_row_counter += 1
 
 
     print(f"Restored {len(locus_ids_missing_from_variation_clusters_file):,d} TRs that were not in the variation "
@@ -121,10 +123,11 @@ def main():
 
     run(f"bedtools sort -i {args.output_bed_path} | bgzip > {args.output_bed_path}.sorted")
     run(f"mv {args.output_bed_path}.sorted {args.output_bed_path}.gz")
-    #os.remove(args.output_bed_path)
+    os.remove(args.output_bed_path)
 
-    print(f"Wrote {len(all_locus_ids_in_variation_clusters_file | locus_ids_missing_from_variation_clusters_file):,d} "
-          f"rows to {args.output_bed_path}.gz")
+    print(f"Wrote {output_row_counter:,d} rows and "
+          f"{len(all_locus_ids_in_variation_clusters_file | locus_ids_missing_from_variation_clusters_file):,d} "
+          f"unique LocusIds to {args.output_bed_path}.gz")
 
 
 if __name__ == "__main__":
