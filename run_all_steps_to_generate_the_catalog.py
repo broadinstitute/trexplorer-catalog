@@ -367,8 +367,7 @@ EOF
         run(f"mv {output_prefix}.EH.with_annotations.with_variation_clusters.json.gz {annotated_catalog_path}", step_number=10)
         run(f"cp {args.variation_clusters_bed} {variation_clusters_release_filename}", step_number=10)
 
-        run(f"""python3 {base_dir}/scripts/add_isolated_loci_to_variation_cluster_catalog.py \
-            --known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} \
+        run(f"""python3 {base_dir}/scripts/generate_TRGT_catalog_with_isolated_repeats_and_variation_clusters.py \
             -o {variation_clusters_and_isolated_TRs_release_filename} \
             {args.variation_clusters_bed} \
             {annotated_catalog_path}""", step_number=11)

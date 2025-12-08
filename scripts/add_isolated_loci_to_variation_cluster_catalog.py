@@ -1,23 +1,29 @@
-"""This script takes a BED file of variation clusters and a JSON file of all tandem repeats and writes out a new BED file
+"""NOTE: deprecated. This script was only used for the v1.0 catalog.
+
+This script takes a BED file of variation clusters and a JSON file of all tandem repeats and writes out a new BED file
 with all input variation clusters as well as any tandem repeats from teh input catalog that aren't embedded in variation clusters
 (ie. are isolated repeats).
 """
 
+
 import argparse
 import collections
 import gzip
-import ijson
 import os
 import simplejson as json
 import re
-import sys
 import tqdm
 
 from str_analysis.utils.misc_utils import parse_interval
 from str_analysis.utils.eh_catalog_utils import get_variant_catalog_iterator
-from str_analysis.convert_expansion_hunter_catalog_to_trgt_catalog import convert_expansion_hunter_record_to_trgt_row
+from str_analysis.convert_expansion_hunter_catalog_to_trgt_catalog import convert_expansion_hunter_record_to_trgt_rows
 
 MINIMUM_CHANGE_TO_BOUNDARIES_THRESHOLD = 6
+
+def run(cmd):
+	print(cmd)
+	os.system(cmd)
+
 
 def main():
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, description=__doc__)
@@ -70,9 +76,9 @@ def main():
 
 			counter["variation_clusters"] += 1
 			fields = line.strip("\n").split("\t")
-			chrom = fields[0]
-			start_0based = int(fields[1])
-			end_1based = int(fields[2])
+			#chrom = fields[0]
+			#start_0based = int(fields[1])
+			#end_1based = int(fields[2])
 			info_fields = fields[3]
 
 			info_fields_dict = {}
@@ -84,7 +90,7 @@ def main():
 				key, value = key_value
 				info_fields_dict[key] = value
 
-			region = f"{chrom.replace('chr', '')}:{start_0based}-{end_1based}"
+			#region = f"{chrom.replace('chr', '')}:{start_0based}-{end_1based}"
 			for locus_id in info_fields_dict["ID"].split(","):
 				if locus_id in known_pathogenic_reference_regions_lookup or locus_id.count("-") == 3:
 					if locus_id in locus_ids_in_variation_clusters:
@@ -103,10 +109,10 @@ def main():
 		if record["LocusId"] in locus_ids_in_variation_clusters:
 			counter["TRs_in_variation_clusters"] += 1
 			continue
-		output_row = convert_expansion_hunter_record_to_trgt_row(record_i, record)
-		output_bed_file.write("\t".join(map(str, output_row)) + "\n")
-		counter['output_total'] += 1
-		counter['isolated_TRs'] += 1
+		for output_row in convert_expansion_hunter_record_to_trgt_rows(record_i, record):
+			output_bed_file.write("\t".join(map(str, output_row)) + "\n")
+			counter['output_total'] += 1
+			counter['isolated_TRs'] += 1
 
 	print(f"Parsed {counter['TRs_from_catalog']:,d} TRs from {args.input_repeat_catalog}")
 	output_bed_file.close()
@@ -118,9 +124,9 @@ def main():
 
 	print(f"{counter['TRs_in_variation_clusters']:,d} out of {counter['TRs_from_catalog']:,d} "
 		  f"({counter['TRs_in_variation_clusters']/counter['TRs_from_catalog']*100:.2f}%) TRs were in variation clusters")
-	os.system(f"bedtools sort -i {args.output_bed_path} | bgzip > {args.output_bed_path}.sorted")
-	os.system(f"mv {args.output_bed_path}.sorted {args.output_bed_path}.gz")
-	os.remove(args.output_bed_path)
+	run(f"bedtools sort -i {args.output_bed_path} | bgzip > {args.output_bed_path}.sorted")
+	run(f"mv {args.output_bed_path}.sorted {args.output_bed_path}.gz")
+	#os.remove(args.output_bed_path)
 
 	print(f"Added {counter['isolated_TRs']:,d} isolated TRs to {args.output_bed_path}.gz")
 	print(f"Wrote {counter['output_total']:,d} rows to {args.output_bed_path}.gz")
