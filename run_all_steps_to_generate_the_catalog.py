@@ -18,7 +18,7 @@ fi
 """)
 
 
-VERSION = 2.0
+VERSION = 2
 
 def run(command, step_number=None):
     command = re.sub("[ \\t]{2,}", "  ", command)  # remove extra spaces
@@ -49,7 +49,9 @@ def chdir(d):
 parser = argparse.ArgumentParser()
 parser.add_argument("--hg38-reference-fasta", default="hg38.fa", help="Path of hg38 reference genome FASTA file")
 parser.add_argument("--gencode-gtf", default="gencode.v46.basic.annotation.gtf.gz", help="Gene annotations GTF file")
-parser.add_argument("--output-prefix", default="repeat_catalog_v2.hg38")
+parser.add_argument("--output-prefix", default=f"TRExplorer.repeat_catalog_v{VERSION}.hg38")
+parser.add_argument("--variation-clusters-output-prefix", default=f"TRExplorer.variation_clusters_and_isolated_TRs_v{VERSION}.hg38")
+
 parser.add_argument("--only-step", type=int, help="Only run this one step")
 parser.add_argument("--start-with-step", type=int, help="Start with a specific step number")
 parser.add_argument("--end-with-step", type=int, help="End with a specific step number")
@@ -69,7 +71,6 @@ parser.add_argument("--variation-clusters-bed", default="gs://tandem-repeat-cata
                     help="Variation clusters file shared by Egor Dolzhenko")
 parser.add_argument("--skip-variation-cluster-annotations", action="store_true",
                     help="Skip adding variation cluster annotations to the catalog")
-parser.add_argument("--variation-clusters-output-prefix", default=f"variation_clusters_v{VERSION}.hg38")
 parser.add_argument("--timestamp", default=datetime.datetime.now().strftime('%Y-%m-%d'),
                     help="Timestamp to use in the output directory name")
 parser.add_argument("--dry-run", action="store_true", help="Print commands without running them")
@@ -180,7 +181,7 @@ if not args.dry_run:
         --output-path {primary_disease_associated_loci_path} \
         {primary_disease_associated_loci_path}""", step_number=1)
 
-    run(f"python3 -m str_analysis.compute_catalog_stats --verbose {primary_disease_associated_loci_path}", step_number=2)
+    run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {primary_disease_associated_loci_path}", step_number=2)
 
 adjacent_repeats_source_bed = None
 for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
@@ -236,7 +237,7 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
             {catalog_path}""", step_number=3)
 
         print(f"Stats for {catalog_path}")
-        run(f"python3 -m str_analysis.compute_catalog_stats --verbose {filtered_catalog_path}", step_number=3)
+        run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {filtered_catalog_path}", step_number=3)
 
     # NOTE: we don't use the --merge-adjacent-loci-with-same-motif  option for str_analysis.merge_loci because
     # it's important to preserve locus definitions as they appear in the individual source catalogs. If loci
@@ -351,8 +352,7 @@ EOF
 
     # add variation cluster annotations to the catalog
     if args.variation_clusters_bed:
-        variation_clusters_and_isolated_TRs_release_filename = args.variation_clusters_output_prefix.replace(
-            "variation_clusters", "variation_clusters_and_isolated_TRs") + ".TRGT.bed.gz"
+        variation_clusters_and_isolated_TRs_release_filename = f"{args.variation_clusters_output_prefix}.TRGT.bed.gz"
 
         run(f"""python3 {base_dir}/scripts/add_variation_cluster_annotations_to_catalog.py \
             --verbose \
@@ -491,7 +491,7 @@ EOF
         run(f"tar czf {release_tar_gz_path} -C {os.path.dirname(output_prefix)} " + " ".join([os.path.basename(p) for p in updated_release_files]), step_number=28)
         run(f"cp {release_tar_gz_path} {release_draft_folder}", step_number=28)
 
-    run(f"python3 -m str_analysis.compute_catalog_stats --verbose {annotated_catalog_path}", step_number=29)
+    run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {annotated_catalog_path}", step_number=29)
 
     # report hours, minutes, seconds relative to start_time
     diff = time.time() - start_time
@@ -533,7 +533,7 @@ EOF
             --verbose \
             {path}""", step_number=31)
 
-        run(f"python3 -m str_analysis.compute_catalog_stats --verbose {filtered_comparison_catalog_path}", step_number=32)
+        run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {filtered_comparison_catalog_path}", step_number=32)
 
         run(f"""python3 -u -m str_analysis.merge_loci \
             --output-prefix {catalog_name} \
