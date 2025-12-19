@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import pyfaidx
-import random
 import re
 import seaborn as sns
 import tqdm
@@ -38,9 +37,7 @@ MOTIF_MATCH_SCORE_MAP = {
 OVERLAP_SCORE_FOR_EXACT_MATCH = 7
 OVERLAP_SCORE_FOR_DIFF_2_REPEATS = 6
 OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66 = 5
-OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_5_AND_0_66 = 4
-OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_33_AND_0_5 = 3
-OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_33 = 2
+OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_66 = 2
 OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2 = 1
 OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG = 0
 OVERLAP_SCORE_FOR_ABSENT_FROM_NEW_CATALOG = -1
@@ -48,9 +45,7 @@ OVERLAP_SCORE_MAP = {
     OVERLAP_SCORE_FOR_EXACT_MATCH: "exact match",
     OVERLAP_SCORE_FOR_DIFF_2_REPEATS: "diff ≤ 2 repeats",
     OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66: "Jaccard similarity > 0.66",
-    OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_5_AND_0_66: "0.5 < Jaccard similarity ≤ 0.66",
-    OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_33_AND_0_5: "0.33 < Jaccard similarity ≤ 0.5",
-    OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_33: "0.2 < Jaccard similarity ≤ 0.33",
+    OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_66: "0.2 < Jaccard similarity ≤ 0.66",
     OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2: "Jaccard similarity ≤ 0.2",
     OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG: "absent from main catalog",
     OVERLAP_SCORE_FOR_ABSENT_FROM_NEW_CATALOG: "absent from new catalog",
@@ -65,13 +60,15 @@ def main():
     p.add_argument("--print-stats", type=int, default=1, choices=[0, 1, 2, 3],
                    help="At the end, output some stats at this level of detail. The higher the number, the more detailed the stats")
     p.add_argument("--skip-plots", action="store_true", help="Skip generating plots")
+    p.add_argument("--annotate-bed-files", action="store_true", help="Annotate BED files by running str_analysis.annotate_and_filter_str_catalog")
     p.add_argument("--plot-output-dir", default="plots", help="Directory to write plots to")
     p.add_argument("--write-loci-absent-from-new-catalog", action="store_true",
                    help="When generating the output table, include loci that are absent from the new catalog")
     p.add_argument("--write-bed-files-with-subsets", action="store_true",
                    help="Output BED files of loci with different concordance levels to enable manual review")
+    p.add_argument("--overlap-by-motif-max-x", type=int, default=None, help="Maximum x-axis value for the overlap by motif plot. If not specified, the maximum x-axis value will be determined automatically.")
     p.add_argument("--catalog-bed-path",
-                   default="TRExplorer_v2:../results__2025-11-03/release_draft_2025-11-03/repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz",
+                   default="TRExplorer_v2:../results__2025-12-07/release_draft_2025-12-07/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz",
                    help="BED file path for the main TR catalog. Optionally, the path can be preceded by a name for the catalog, followed by ':' and then the path")
     p.add_argument("new_catalog", nargs="+",
                    help="BED file path for the new catalog to compare with locus definitions in the main catalog specified by --catalog-bed-path. "
@@ -134,9 +131,6 @@ def main():
             reference_fasta=reference_fasta,
             write_loci_absent_from_new_catalog=args.write_loci_absent_from_new_catalog,
         )
-        df.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
-        df.to_csv(output_tsv, sep="\t", index=False)
-        print(f"Wrote {len(df):,d} rows to {output_tsv}")
 
         if args.write_bed_files_with_subsets:
 
@@ -150,6 +144,8 @@ def main():
                 os.system(f"bgzip -f {output_bed_path}")
                 os.system(f"tabix -f {output_bed_path}.gz")
                 print(f"Wrote {len(df_filtered):,d} rows to {output_bed_path}.gz")
+                if args.annotate_bed_files:
+                    annotate_bed_file(f"{output_bed_path}.gz", args.reference_fasta)
 
             # output BED file with loci that are absent from the new catalog
             df_filtered = df[df["overlap_score"] == OVERLAP_SCORE_FOR_ABSENT_FROM_NEW_CATALOG]
@@ -161,6 +157,8 @@ def main():
                 os.system(f"bgzip -f {output_bed_path}")
                 os.system(f"tabix -f {output_bed_path}.gz")
                 print(f"Wrote {len(df_filtered):,d} rows to {output_bed_path}.gz")
+                if args.annotate_bed_files:
+                    annotate_bed_file(f"{output_bed_path}.gz", args.reference_fasta)
 
             # output BED file with loci that are absent from the main catalog
             df_filtered = df[df["overlap_score"] == OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG]
@@ -172,6 +170,8 @@ def main():
                 os.system(f"bgzip -f {output_bed_path}")
                 os.system(f"tabix -f {output_bed_path}.gz")
                 print(f"Wrote {len(df_filtered):,d} rows to {output_bed_path}.gz")
+                if args.annotate_bed_files:
+                    annotate_bed_file(f"{output_bed_path}.gz", args.reference_fasta)
 
             # output BED file with Jaccard similarity < 0.2
 
@@ -187,17 +187,42 @@ def main():
                 os.system(f"bgzip -f {output_bed1_path}")
                 os.system(f"tabix -f {output_bed1_path}.gz")
                 print(f"Wrote {len(df_filtered):,d} rows to {output_bed1_path}.gz")
+                if args.annotate_bed_files:
+                    annotate_bed_file(f"{output_bed1_path}.gz", args.reference_fasta)
 
                 output_bed2_path = f"loci_from_{new_catalog_name}.same_boundaries_but_different_motifs.bed"
                 df_filtered[["chrom", "start_0based", "end_1based", f"{new_catalog_name}_motif"]].to_csv(output_bed2_path, sep="\t", index=False, header=False)
                 os.system(f"bgzip -f {output_bed2_path}")
                 os.system(f"tabix -f {output_bed2_path}.gz")
                 print(f"Wrote {len(df_filtered):,d} rows to {output_bed2_path}.gz")
+                if args.annotate_bed_files:
+                    annotate_bed_file(f"{output_bed2_path}.gz", args.reference_fasta)
 
         if args.print_stats > 0:
-            print_stats(args, main_catalog_loci, df, new_catalog_name=new_catalog_name)
+            print_stats(args, main_catalog_loci, df, new_catalog_name=new_catalog_name, overlap_by_motif_max_x=args.overlap_by_motif_max_x)
 
-def print_stats(args, main_catalog_loci, df, new_catalog_name):
+        df.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
+        df.to_csv(output_tsv, sep="\t", index=False)
+        print(f"Wrote {len(df):,d} rows to {output_tsv}")
+
+
+def annotate_bed_file(bed_file_path, reference_fasta_path):
+    cmd = "python3 -m str_analysis.annotate_and_filter_str_catalog "
+    cmd += f"--reference-fasta {reference_fasta_path} "
+    cmd += f"--min-motif-size 1 "
+    cmd += f"--max-motif-size 1000 "
+    cmd += f"--min-interval-size-bp 1 "
+    cmd += f"--discard-overlapping-intervals-with-similar-motifs "
+    cmd += f"--skip-disease-loci-annotations "
+    cmd += f"--skip-gene-annotations "
+    cmd += f"--skip-mappability-annotations "
+    cmd += f"--show-progress "
+    cmd += f"--output-tsv "
+    cmd += f"{bed_file_path} "
+    print(cmd)
+    os.system(cmd)
+
+def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_max_x=None):
     # print some stats
     total_count = collections.Counter()
     main_catalog_motif_size_distribution = collections.Counter()
@@ -534,6 +559,8 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name):
     ordered_handles = [handle_label_map[label] for label in desired_order if label in handle_label_map]
     ordered_labels = [label for label in desired_order if label in handle_label_map]
 
+    if overlap_by_motif_max_x is not None:
+        plt.gca().set_xlim(0, overlap_by_motif_max_x)
     plt.legend(ordered_handles, ordered_labels, title="", frameon=True)
     plt.gca().set_ylabel("")
     plt.gca().spines["top"].set_visible(False)
@@ -605,42 +632,45 @@ def compute_overlap_score(main_catalog_interval, start_0based, end_1based, min_m
     jaccard_similarity = intersection_size / union_size
     if jaccard_similarity > 2/3.0:
         return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66
-    if jaccard_similarity > 0.5:
-        return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_5_AND_0_66
-    if jaccard_similarity > 1/3.0:
-        return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_33_AND_0_5
     if jaccard_similarity > 0.2:
-        return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_33
+        return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_66
 
     return OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2
 
 
-def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, main_catalog_motif, main_catalog_name=None):
-    high_overlap_score = overlap_score >= 5
-    medium_or_high_overlap_score = overlap_score >= 2
-    high_motif_similarity = (motif_match_score == 3 or (new_catalog_motif is not None and len(new_catalog_motif) > 6 and motif_match_score == 2))
+def compute_match_summary(overlap_score, motif_match_score, new_catalog_motif, main_catalog_motif, main_catalog_name=None, take_motif_similarity_into_account=True):
+    high_overlap_score = overlap_score >= OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66
+    medium_or_high_overlap_score = overlap_score >= OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_66
+    high_motif_similarity = (motif_match_score == MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH or (new_catalog_motif is not None and len(new_catalog_motif) > 6 and motif_match_score >= MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH))
 
     if main_catalog_motif is not None and new_catalog_motif is not None and not high_motif_similarity:
-        #different_motifs_description = f"different motifs, "
         different_motifs_description = f"{len(main_catalog_motif)}bp motif in {main_catalog_name} instead of {len(new_catalog_motif)}bp, "
     else:
         different_motifs_description = ""
 
-    if high_overlap_score and high_motif_similarity:
-        was_match_found = "yes (Jaccard > 0.66 and similar motifs)"
-    elif medium_or_high_overlap_score:
-        if high_overlap_score:
-            was_match_found = f"sort of ({different_motifs_description}Jaccard > 0.66)"
+    if take_motif_similarity_into_account:
+        if high_overlap_score and high_motif_similarity:
+            was_match_found = "yes (Jaccard > 0.66 and similar motifs)"
+        elif medium_or_high_overlap_score:
+            if high_overlap_score:
+                was_match_found = f"sort of ({different_motifs_description}Jaccard > 0.66)"
+            else:
+                was_match_found = f"sort of ({different_motifs_description}0.2 > Jaccard <= 0.66)"
+        elif overlap_score > OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG and motif_match_score > MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG:
+            was_match_found = f"no ({different_motifs_description}Jaccard <= 0.2)"
         else:
-            was_match_found = f"sort of ({different_motifs_description}0.2 > Jaccard <= 0.66)"
-    elif overlap_score > 0 and motif_match_score > 0:
-        was_match_found = f"no ({different_motifs_description}Jaccard <= 0.2)"
+            was_match_found = NO_MATCH_FOUND
     else:
-        was_match_found = NO_MATCH_FOUND
+        if overlap_score >= OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66:
+            was_match_found = f"yes ({different_motifs_description}Jaccard > 0.66)"
+        elif overlap_score >= OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BETWEEN_0_2_AND_0_66:
+            was_match_found = f"sort of ({different_motifs_description}0.2 > Jaccard <= 0.66)"
+        elif overlap_score > OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG:
+            was_match_found = f"no ({different_motifs_description}Jaccard <= 0.2)"
+        else:
+            was_match_found = NO_MATCH_FOUND
 
     return was_match_found
-
-
 
 
 def compute_optimal_motif_match_score(
@@ -695,6 +725,7 @@ def compute_optimal_motif_match_score(
             return f"all three differ in length, optimal motif is shortest"
         else:
             return f"all three differ in length, optimal motif length is in the middle"
+
 
 def compute_purity_stats_for_interval(reference_fasta, chrom, start_0based, end_1based, motif):
     motif_length_purity, most_common_motif = compute_motif_length_purity_for_interval(
@@ -792,21 +823,25 @@ def compare_loci(
 
         reference_repeat_count = (end_1based - start_0based) // len(canonical_motif) if canonical_motif is not None else None
 
-        motif_purity, motif_length_purity, _ = compute_purity_stats_for_interval(reference_fasta, chrom, start_0based, end_1based, motif)
-        optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_optimal_motif_length_for_interval(
-            reference_fasta,
-            chrom,
-            start_0based,
-            end_1based,
-            max_motif_length=2 * (max(len(motif), len(main_catalog_canonical_motif)) if main_catalog_canonical_motif else len(motif)))
+        if start_0based < end_1based:
+            motif_purity, motif_length_purity, _ = compute_purity_stats_for_interval(reference_fasta, chrom, start_0based, end_1based, motif)
+            optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_optimal_motif_length_for_interval(
+                reference_fasta,
+                chrom,
+                start_0based,
+                end_1based,
+                max_motif_length=(end_1based - start_0based) // 2)
 
-        optimal_motif_match = compute_optimal_motif_match_score(
-            optimal_motif,
-            new_catalog_name,
-            motif,
-            main_catalog_name,
-            main_catalog_motif = closest_match_main_catalog_interval.data["motif"] if closest_match_main_catalog_interval is not None else None,
-        )
+            optimal_motif_match = compute_optimal_motif_match_score(
+                optimal_motif,
+                new_catalog_name,
+                motif,
+                main_catalog_name,
+                main_catalog_motif = closest_match_main_catalog_interval.data["motif"] if closest_match_main_catalog_interval is not None else None,
+            )
+        else:
+            optimal_motif_match = optimal_motif = optimal_motif_purity = optimal_motif_quality_score = motif_purity = motif_length_purity = None
+
 
         output_row = {
             "chrom": chrom,
@@ -832,8 +867,8 @@ def compare_loci(
             f"{new_catalog_name}_purity_of_motif_length": motif_length_purity,
 
             "optimal_motif": optimal_motif,
-            "optimal_canonical_motif": compute_canonical_motif(optimal_motif),
-            "optimal_motif_length": len(optimal_motif),
+            "optimal_canonical_motif": compute_canonical_motif(optimal_motif) if optimal_motif is not None else None,
+            "optimal_motif_length": len(optimal_motif) if optimal_motif is not None else None,
             "optimal_motif_purity": optimal_motif_purity,
             "optimal_motif_quality_score": optimal_motif_quality_score,
             "optimal_motif_match": optimal_motif_match,
