@@ -1,6 +1,6 @@
 
-for catalog in TRExplorer_v2:../../results__2025-11-22/1_to_1000bp_motifs/repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz \
-		   loci_from_vamos:../../results__2025-11-28/1_to_1000bp_motifs/repeat_catalog_v2.hg38.1_to_1000bp_motifs.merged2.vamos_catalog.ori.v2.1.filtered.unique_loci.bed.gz;
+for catalog in TRExplorer_v2:../../results__2025-12-08/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz \
+		   loci_from_vamos:../../results__2025-12-08/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.merged2.vamos_catalog.ori.v2.1.filtered.unique_loci.bed.gz;
 do 
     echo ================================================================================================
     echo Comparing  to ${catalog}

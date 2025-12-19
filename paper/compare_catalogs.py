@@ -65,7 +65,7 @@ catalogs_in_order = [
 	("PerfectRepeatsInReference", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
 	("PolymorphicTRsInT2TAssemblies", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
 	#("MukamelVNTRs", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/mukamel_VNTR_catalog.bed.gz"),
-        ("TRExplorer_Catalog_v1", "https://github.com/broadinstitute/tandem-repeat-catalog/releases/download/v1.0/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.json.gz"),
+    ("TRExplorer_Catalog_v1", "https://github.com/broadinstitute/tandem-repeat-catalog/releases/download/v1.0/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.json.gz"),
 ]
 
 
@@ -158,8 +158,7 @@ else:
 if "UCSC_SimpleRepeatTrack" in catalog_paths and (
 	not args.keyword or args.keyword.lower() in "UCSC_SimpleRepeatTrack".lower() or args.keyword.lower() in catalog_paths["UCSC_SimpleRepeatTrack"].lower()):
 	path_after_conversion = catalog_paths["UCSC_SimpleRepeatTrack"].replace(".txt.gz", "") + "_track_from_UCSC.bed.gz"
-	if not os.path.isfile(path_after_conversion):
-		run(f"python3 -u {scripts_dir}/convert_ucsc_simple_repeat_track_to_bed.py {catalog_paths['UCSC_SimpleRepeatTrack']} -o {path_after_conversion}")
+	run(f"python3 -u {scripts_dir}/convert_ucsc_simple_repeat_track_to_bed.py --simple-repeat-track-url {catalog_paths['UCSC_SimpleRepeatTrack']} -o {path_after_conversion}")
 	catalog_paths["UCSC_SimpleRepeatTrack"] = path_after_conversion
 
 # convert Chiu et al catalog to ExpansionHunter catalog format for comparison
