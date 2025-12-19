@@ -48,22 +48,24 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("-n", type=int, help="Number of loci to process")
     p.add_argument("--catalog-name", default="TRExplorer_v1")
-    p.add_argument("--catalog-path",
-                   #default="../results__2025-09-04/release_draft_2025-09-04/repeat_catalog_v1.hg38.1_to_1000bp_motifs.bed.gz",
-                   #default="../results__2025-11-03/release_draft_2025-11-03/repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz",
-                   default="../results__2025-09-04/release_draft_2025-09-04/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.with_annotations.json.gz",
-                   help="Catalog path")
+    p.add_argument(
+        "--catalog-path",
+        #default="../results__2025-09-04/release_draft_2025-09-04/repeat_catalog_v1.hg38.1_to_1000bp_motifs.bed.gz",
+        #default="../results__2025-11-03/release_draft_2025-11-03/repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz",
+        default="../results__2025-12-08/release_draft_2025-12-08/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.EH.with_annotations.json.gz",
+        help="Catalog path")
     args = p.parse_args()
 
     if not os.path.isfile(args.catalog_path):
         p.error(f"File not found: {args.catalog_path}")
 
-
     motif_size_distribution = collections.Counter()
     reference_repeat_count_distribution = collections.Counter()
-    gene_region_distribution = collections.Counter()
+    gencode_gene_region_distribution = collections.Counter()
+    mane_gene_region_distribution = collections.Counter()
     for key in ['CDS', "5' UTR", "3' UTR", 'exon', 'intron', 'promoter', 'intergenic']:
-        gene_region_distribution[key] = 0
+        gencode_gene_region_distribution[key] = 0
+        mane_gene_region_distribution[key] = 0
         
     print(f"Parsing {args.catalog_path} to json")
     fopen = gzip.open if args.catalog_path.endswith("gz") else open
@@ -73,10 +75,14 @@ def main():
             if args.n is not None and i >= args.n:
                 break
 
+            if not record["Source"].startswith("TRExplorerV1"):
+                continue
+
             motif_size = len(record["CanonicalMotif"])
             motif_size_distribution[motif_size] += 1
             reference_repeat_count_distribution[record["NumRepeatsInReference"]] += 1
-            gene_region_distribution[record["GencodeGeneRegion"]] += 1
+            gencode_gene_region_distribution[record["GencodeGeneRegion"]] += 1
+            mane_gene_region_distribution[record["ManeGeneRegion"]] += 1
 
 
     # bin values between 7 and 24 as "7-24" and 25+ as "25+"
@@ -95,7 +101,7 @@ def main():
     catalog_name = args.catalog_name.replace(" ", "_")
     plt.figure(figsize=(12, 8))
     sns.barplot(x=list(motif_size_distribution.keys()), y=list(motif_size_distribution.values()), color="cornflowerblue")
-    plt.xticks(rotation=45)
+    plt.title(f"Motif Size Distribution", fontsize=18, pad=12)
     plt.xlabel("Motif size (bp)", fontsize=16)
     plt.ylabel("# of TRs", fontsize=16)
     plt.gca().spines["top"].set_visible(False)
@@ -103,8 +109,8 @@ def main():
     plt.gca().set_position([0.15, 0.15, 0.8, 0.8])
     plt.gca().xaxis.labelpad = 15
     plt.gca().yaxis.labelpad = 15
+    plt.gca().grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray")
     plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
-    plt.title(f"{catalog_name.replace('_', ' ')} motif size distribution", fontsize=18)
     plt.gca().tick_params(axis='both', which='major', labelsize=14)
     plt.savefig(f"{catalog_name}.motif_size_distribution.png")
     print(f"Wrote motif size distribution to {catalog_name}.motif_size_distribution.png")
@@ -123,7 +129,7 @@ def main():
     catalog_name = catalog_name.replace(" ", "_")
     plt.figure(figsize=(12, 8))
     sns.barplot(x=list(reference_repeat_count_distribution.keys()), y=list(reference_repeat_count_distribution.values()), color="cornflowerblue")
-    plt.xticks(rotation=45)
+    plt.title(f"GRCh38 Reference Repeat Count Distribution", fontsize=18, pad=20)
     plt.xlabel("Repeats in hg38", fontsize=16)
     plt.ylabel("# of TRs", fontsize=16)
     plt.gca().spines["top"].set_visible(False)
@@ -131,35 +137,74 @@ def main():
     plt.gca().set_position([0.15, 0.15, 0.8, 0.8])
     plt.gca().xaxis.labelpad = 15
     plt.gca().yaxis.labelpad = 15
-    plt.title(f"{catalog_name.replace('_', ' ')} reference repeat count distribution", fontsize=18)
+    plt.gca().set_ylim(0, 2000000)
+    plt.gca().grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray")
     plt.gca().tick_params(axis='both', which='major', labelsize=14)
     plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
     plt.savefig(f"{catalog_name}.reference_repeat_count_distribution.png")
     print(f"Wrote reference repeat count distribution to {catalog_name}.reference_repeat_count_distribution.png")
     plt.close()
 
-
-    # plot the gene region distribution
+    # plot the Gencode gene region distribution
     plt.figure(figsize=(12, 8))
-    sns.barplot(x=list(gene_region_distribution.keys()), y=list(gene_region_distribution.values()), color="cornflowerblue")
+    sns.barplot(x=list(gencode_gene_region_distribution.keys()), y=list(gencode_gene_region_distribution.values()), color="cornflowerblue")
+    plt.title(f"Gencode v49 Gene Regions", fontsize=18, pad=20)
     plt.xticks(rotation=45)
     plt.xlabel("Gene region", fontsize=16)
     plt.ylabel("# of TRs", fontsize=16)
     plt.gca().spines["top"].set_visible(False)
     plt.gca().spines["right"].set_visible(False)
     plt.gca().set_position([0.15, 0.20, 0.8, 0.7])
-
-
     plt.gca().xaxis.labelpad = 15
     plt.gca().yaxis.labelpad = 15
-    plt.title(f"{catalog_name.replace('_', ' ')} gene region distribution", fontsize=18)
+    #plt.gca().set_yscale("log")
+    #plt.gca().set_yticks([1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000])
+    plt.gca().set_ylim(0, 2000000)
+    plt.gca().grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray")
     plt.gca().tick_params(axis='both', which='major', labelsize=14)
     plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
-    plt.savefig(f"{catalog_name}.gene_region_distribution.png")
-    print(f"Wrote gene region distribution to {catalog_name}.gene_region_distribution.png")
+    plt.savefig(f"{catalog_name}.gencode_gene_region_distribution.png")
+    print(f"Wrote gene region distribution to {catalog_name}.gencode_gene_region_distribution.png")
     plt.close()
 
 
+    # plot the MANE gene region distribution
+    plt.figure(figsize=(12, 8))
+    sns.barplot(x=list(mane_gene_region_distribution.keys()), y=list(mane_gene_region_distribution.values()), color="cornflowerblue")
+    plt.title(f"MANE v1.4 Gene Regions", fontsize=18, pad=20)
+    plt.xticks(rotation=45)
+    plt.xlabel("Gene region", fontsize=16)
+    plt.ylabel("# of TRs", fontsize=16)
+    plt.gca().spines["top"].set_visible(False)
+    plt.gca().spines["right"].set_visible(False)
+    plt.gca().set_position([0.15, 0.20, 0.8, 0.7])
+    plt.gca().xaxis.labelpad = 15
+    plt.gca().yaxis.labelpad = 15
+    #plt.gca().set_yscale("log")
+    #plt.gca().set_yticks([1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000])
+    plt.gca().set_ylim(0, 2000000)
+    plt.gca().grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray")
+    plt.gca().tick_params(axis='both', which='major', labelsize=14)    
+    plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+    plt.savefig(f"{catalog_name}.mane_gene_region_distribution.png")
+    print(f"Wrote gene region distribution to {catalog_name}.mane_gene_region_distribution.png")
+    plt.close()
+
+    print("Motif size distribution:")
+    for key, count in motif_size_distribution.items():
+        print(f"{count:10,d} ({count/sum(motif_size_distribution.values())*100:6.1f}%) {key}")
+    print(f"Total number of TRs: {sum(motif_size_distribution.values()):,}")
+
+
+    print("Gencode gene region distribution:")
+    for key, count in gencode_gene_region_distribution.items():
+        print(f"{count:10,d} ({count/sum(gencode_gene_region_distribution.values())*100:6.1f}%) {key}")
+    print(f"Total: {sum(gencode_gene_region_distribution.values()):,}")
+
+    print("MANE gene region distribution:")
+    for key, count in mane_gene_region_distribution.items():
+        print(f"{count:10,d} ({count/sum(mane_gene_region_distribution.values())*100:6.1f}%) {key}")
+    print(f"Total: {sum(mane_gene_region_distribution.values()):,}")
 
 if __name__ == "__main__":
     main()
