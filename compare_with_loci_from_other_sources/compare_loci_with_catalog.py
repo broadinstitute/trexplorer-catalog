@@ -17,7 +17,7 @@ import tqdm
 
 from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 from str_analysis.utils.find_repeat_unit import find_repeat_unit_without_allowing_interruptions
-from str_analysis.utils.find_motif_utils import find_optimal_motif_length_for_interval, compute_motif_length_purity_for_interval, compute_motif_purity_for_interval
+from str_analysis.utils.find_motif_utils import find_highest_purity_motif_length_for_interval, compute_motif_length_purity_for_interval, compute_motif_purity_for_interval
 
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF = 4
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH = 3
@@ -825,7 +825,7 @@ def compare_loci(
 
         if start_0based < end_1based:
             motif_purity, motif_length_purity, _ = compute_purity_stats_for_interval(reference_fasta, chrom, start_0based, end_1based, motif)
-            optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_optimal_motif_length_for_interval(
+            optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_highest_purity_motif_length_for_interval(
                 reference_fasta,
                 chrom,
                 start_0based,

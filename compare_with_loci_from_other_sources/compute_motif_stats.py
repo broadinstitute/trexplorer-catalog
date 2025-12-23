@@ -21,7 +21,7 @@ import tqdm
 from str_analysis.utils.misc_utils import parse_interval
 from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 from str_analysis.utils.eh_catalog_utils import get_variant_catalog_iterator
-from str_analysis.utils.find_motif_utils import find_optimal_motif_length_for_interval, compute_motif_length_purity_for_interval, compute_motif_purity_for_interval
+from str_analysis.utils.find_motif_utils import find_highest_purity_motif_length_for_interval, compute_motif_length_purity_for_interval, compute_motif_purity_for_interval
 
 
 def compute_purity_stats_for_interval(reference_fasta, chrom, start_0based, end_1based, motif):
@@ -89,7 +89,7 @@ def process_record(record, reference_fasta=None, verbose=False):
     end_1based = record["End_1based"]
     locus_width = end_1based - start_0based
     motif_purity, motif_length_purity, _ = compute_purity_stats_for_interval(reference_fasta, chrom, start_0based, end_1based, record["Motif"])
-    optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_optimal_motif_length_for_interval(
+    optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_highest_purity_motif_length_for_interval(
         reference_fasta, chrom, start_0based, end_1based, max_motif_length=max(
             motif_length, min(motif_length * 2 + 1, (end_1based - start_0based - 1))),
         negligible_change_in_purity=0.00,

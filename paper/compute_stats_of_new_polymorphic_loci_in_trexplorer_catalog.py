@@ -16,6 +16,7 @@ counters = collections.Counter()
 hipstr_catalog_path = ("./compare_catalogs/hg38.hipstr_reference.catalog.bed.gz", "HipSTR")
 gangstr_catalog_path = ("./compare_catalogs/hg38_ver17.bed.gz", "GangSTR")
 illumina174k_catalog_path = ("./compare_catalogs/illumina_variant_catalog.sorted.bed.gz", "Illumina174k")
+trexplorer_catalog_json_path = "~/code/tandem-repeat-explorer/downloads/TR_catalog.5591917_loci.20251209_110637.json.gz"
 
 catalog_interval_trees = collections.defaultdict(intervaltree.IntervalTree)
 for path, source in hipstr_catalog_path, gangstr_catalog_path, illumina174k_catalog_path:
@@ -26,19 +27,14 @@ for path, source in hipstr_catalog_path, gangstr_catalog_path, illumina174k_cata
             chrom = fields[0].replace("chr", "")
             start_0based = int(fields[1])
             end_1based = int(fields[2])
-            motif = fields[3]
-            catalog_interval_trees[chrom].add(intervaltree.Interval(start_0based, end_1based, data=None))
-            #{
-            #    "motif": motif,
-            #    "source": source,
-            #}))
+            #motif = fields[3]
+            catalog_interval_trees[chrom].add(intervaltree.Interval(start_0based, end_1based))
 
     print(f"Merging overlaps in {source}")
     for chrom in catalog_interval_trees:
         catalog_interval_trees[chrom].merge_overlaps(strict=False)
 
-annotated_catalog_json_path = "~/code/tandem-repeat-explorer/downloads/TR_catalog.5591917_loci.20251209_110637.json.gz"
-with gzip.open(os.path.expanduser(annotated_catalog_json_path), "rt") as f:  
+with gzip.open(os.path.expanduser(trexplorer_catalog_json_path), "rt") as f:  
     for i, record in tqdm.tqdm(enumerate(ijson.items(f, "item")), total=5_700_000, unit=" records", unit_scale=True):
         if "TRExplorerV1" not in record["Source"]:
             continue
