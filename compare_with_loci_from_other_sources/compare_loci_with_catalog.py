@@ -583,7 +583,7 @@ def load_main_catalog_loci(args):
             chrom = fields[0].replace("chr", "")
             start = int(fields[1])
             end = int(fields[2])
-            motif = fields[3]
+            motif = fields[3].split(":")[0]
             simplified_motif, _, _ = find_repeat_unit_without_allowing_interruptions(motif, allow_partial_repeats=False)
             canonical_motif = compute_canonical_motif(simplified_motif)
             main_catalog_loci[chrom].add(intervaltree.Interval(start, max(start+1, end), data={
@@ -776,7 +776,7 @@ def compare_loci(
             simplified_motif = None
             canonical_motif = None
         else:
-            motif = fields[3]
+            motif = fields[3].split(":")[0]
             simplified_motif, _, _ = find_repeat_unit_without_allowing_interruptions(motif, allow_partial_repeats=False)
             canonical_motif = compute_canonical_motif(simplified_motif)
 
