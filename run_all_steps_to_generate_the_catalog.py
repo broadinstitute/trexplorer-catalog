@@ -215,10 +215,15 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         filtered_catalog_path = os.path.abspath(os.path.basename(filtered_catalog_path))
         filtered_source_catalog_paths[catalog_name] = filtered_catalog_path
 
+        extra_args = ""
+        if catalog_name == "TRExplorerV2:PolymorphicTRsInT2TAssembliesV2":
+            extra_args = f"--min-repeats-in-reference 1 "
+
         run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog \
             --verbose \
             --known-disease-associated-loci {primary_disease_associated_loci_path} \
             --reference-fasta {args.hg38_reference_fasta} \
+            {extra_args} \
             --min-motif-size {min_motif_size} \
             --max-motif-size {max_motif_size} \
             --min-interval-size-bp 1 \
@@ -346,7 +351,7 @@ EOF
 
 
     # add variation cluster annotations to the catalog
-    if args.variation_clusters_bed:
+    if args.variation_clusters_bed and not args.skip_variation_cluster_annotations:
         variation_clusters_and_isolated_TRs_release_filename = f"{args.variation_clusters_output_prefix}.TRGT.bed.gz"
 
         run(f"""python3 {base_dir}/scripts/add_variation_cluster_annotations_to_catalog.py \
