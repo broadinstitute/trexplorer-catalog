@@ -92,7 +92,7 @@ def process_record(record, reference_fasta=None, verbose=False):
     optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_highest_purity_motif_length_for_interval(
         reference_fasta, chrom, start_0based, end_1based, max_motif_length=max(
             motif_length, min(motif_length * 2 + 1, (end_1based - start_0based - 1))),
-        negligible_change_in_purity=0.00,
+        negligible_change_in_purity=0.02,
     )
 
     canonical_motif = compute_canonical_motif(record["Motif"])

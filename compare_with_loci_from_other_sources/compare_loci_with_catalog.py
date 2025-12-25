@@ -825,6 +825,10 @@ def compare_loci(
 
         if start_0based < end_1based:
             motif_purity, motif_length_purity, _ = compute_purity_stats_for_interval(reference_fasta, chrom, start_0based, end_1based, motif)
+        else:
+            motif_purity = motif_length_purity = None
+
+        if start_0based + 9 <= end_1based:
             optimal_motif, optimal_motif_purity, optimal_motif_quality_score = find_highest_purity_motif_length_for_interval(
                 reference_fasta,
                 chrom,
@@ -840,7 +844,7 @@ def compare_loci(
                 main_catalog_motif = closest_match_main_catalog_interval.data["motif"] if closest_match_main_catalog_interval is not None else None,
             )
         else:
-            optimal_motif_match = optimal_motif = optimal_motif_purity = optimal_motif_quality_score = motif_purity = motif_length_purity = None
+            optimal_motif_match = optimal_motif = optimal_motif_purity = optimal_motif_quality_score = None
 
 
         output_row = {

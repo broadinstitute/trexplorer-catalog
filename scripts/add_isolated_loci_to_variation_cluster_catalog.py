@@ -119,8 +119,9 @@ def main():
 
 	unexpected_locus_ids_in_variation_cluster_catalog = locus_ids_in_variation_clusters - all_catalog_ids
 	if unexpected_locus_ids_in_variation_cluster_catalog:
-		raise ValueError(f"{len(unexpected_locus_ids_in_variation_cluster_catalog)} locus IDs in the variation cluster catalog "
-						 f"were not found in the input repeat catalog: {unexpected_locus_ids_in_variation_cluster_catalog}")
+		raise ValueError(f"{len(unexpected_locus_ids_in_variation_cluster_catalog)} locus IDs in the variation "
+						 f"cluster catalog were not found in the input repeat catalog. Examples: "
+						 f"{list(unexpected_locus_ids_in_variation_cluster_catalog)[:100]}")
 
 	print(f"{counter['TRs_in_variation_clusters']:,d} out of {counter['TRs_from_catalog']:,d} "
 		  f"({counter['TRs_in_variation_clusters']/counter['TRs_from_catalog']*100:.2f}%) TRs were in variation clusters")

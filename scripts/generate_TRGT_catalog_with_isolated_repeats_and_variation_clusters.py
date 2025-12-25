@@ -118,8 +118,9 @@ def main():
 
     unexpected_locus_ids_in_variation_cluster_catalog = all_locus_ids_in_variation_clusters_file - all_locus_ids_in_catalog
     if unexpected_locus_ids_in_variation_cluster_catalog:
-        raise ValueError(f"{len(unexpected_locus_ids_in_variation_cluster_catalog)} locus IDs in the variation cluster "
-            f"catalog were not found in the input repeat catalog: {unexpected_locus_ids_in_variation_cluster_catalog}")
+        raise ValueError(f"{len(unexpected_locus_ids_in_variation_cluster_catalog):,d} locus IDs in the "
+            f"variation cluster catalog were not found in the input repeat catalog. Examples: "
+            f"{list(unexpected_locus_ids_in_variation_cluster_catalog)[:100]}")
 
     run(f"bedtools sort -i {args.output_bed_path} | bgzip > {args.output_bed_path}.sorted")
     run(f"mv {args.output_bed_path}.sorted {args.output_bed_path}.gz")

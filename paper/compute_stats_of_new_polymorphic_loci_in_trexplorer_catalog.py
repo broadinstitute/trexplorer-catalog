@@ -7,7 +7,7 @@ import tqdm
 
 from str_analysis.utils.misc_utils import parse_interval
 
-IS_POLYMORPHIC_THRESHOLD = 0.2
+IS_POLYMORPHIC_THRESHOLD = 0.25
 
 stats_lookup = collections.defaultdict(dict)
 
@@ -19,6 +19,7 @@ illumina174k_catalog_path = ("./compare_catalogs/illumina_variant_catalog.sorted
 trexplorer_catalog_json_path = "~/code/tandem-repeat-explorer/downloads/TR_catalog.5591917_loci.20251209_110637.json.gz"
 
 catalog_interval_trees = collections.defaultdict(intervaltree.IntervalTree)
+"""
 for path, source in hipstr_catalog_path, gangstr_catalog_path, illumina174k_catalog_path:
     print(f"Parsing {path} to interval trees")
     with gzip.open(path, "rt") as f:
@@ -33,6 +34,7 @@ for path, source in hipstr_catalog_path, gangstr_catalog_path, illumina174k_cata
     print(f"Merging overlaps in {source}")
     for chrom in catalog_interval_trees:
         catalog_interval_trees[chrom].merge_overlaps(strict=False)
+"""
 
 with gzip.open(os.path.expanduser(trexplorer_catalog_json_path), "rt") as f:  
     for i, record in tqdm.tqdm(enumerate(ijson.items(f, "item")), total=5_700_000, unit=" records", unit_scale=True):
@@ -47,6 +49,7 @@ with gzip.open(os.path.expanduser(trexplorer_catalog_json_path), "rt") as f:
         else:
             counters["total_VNTRs"] += 1
 
+
         locus_id = record["LocusId"]
         chrom, start_0based, end_1based = parse_interval(record["ReferenceRegion"])
         chrom = chrom.replace("chr", "")
@@ -60,6 +63,19 @@ with gzip.open(os.path.expanduser(trexplorer_catalog_json_path), "rt") as f:
         is_polymorphic_in_AoU1027 = False
         if "AoU1027_Stdev" in record:
             is_polymorphic_in_AoU1027 = float(record["AoU1027_Stdev"]) > IS_POLYMORPHIC_THRESHOLD
+
+        if record.get("HPRC256_UniqueAlleles") is not None and record.get("AoU1027_UniqueAlleles") is not None:
+            counters["has_polymorphism_data_in_HPRC256_and_AoU1027"] += 1
+            counters[record["Source"] + ":has_polymorphism_data_in_HPRC256_and_AoU1027"] += 1
+            if int(record["HPRC256_UniqueAlleles"]) == 1 and int(record["AoU1027_UniqueAlleles"]) == 1:
+                if record["AoU1027_ModeAllele"] == record["HPRC256_ModeAllele"] and record["AoU1027_ModeAllele"] == record["NumRepeatsInReference"]:
+                    counters[record["Source"] + ":has_only_one_allele_in_HPRC256_and_AoU1027_and_hg38"] += 1
+
+                if record["AoU1027_ModeAllele"] == record["HPRC256_ModeAllele"]:
+                    counters[record["Source"] + ":has_only_one_allele_in_HPRC256_and_AoU1027"] += 1
+
+            if float(record["HPRC256_Stdev"]) < IS_POLYMORPHIC_THRESHOLD and float(record["AoU1027_Stdev"]) < IS_POLYMORPHIC_THRESHOLD:
+                counters[record["Source"] + f":stdev_less_than_{IS_POLYMORPHIC_THRESHOLD}_in_HPRC256_and_AoU1027"] += 1
 
 
         is_in_other_catalogs = catalog_interval_trees[chrom].overlap(start_0based, end_1based)

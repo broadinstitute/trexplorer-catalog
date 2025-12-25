@@ -3,7 +3,7 @@
 #catalog=Vamos_v2_1:../vamos_catalog.ori.v2.1.bed.gz
 
 
-catalog=TRExplorer_v2:../../results__2025-11-20/1_to_1000bp_motifs/repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz 
+catalog=TRExplorer_v2:../../results__2025-12-24/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz
 echo ================================================================================================
 echo Comparing Annear 2021 CCG loci to ${catalog}
 echo ================================================================================================

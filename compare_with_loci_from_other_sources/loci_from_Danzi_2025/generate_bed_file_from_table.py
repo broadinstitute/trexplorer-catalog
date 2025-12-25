@@ -29,14 +29,18 @@ df["end_1based"] = df["end_1based"].astype(int)
 # https://www.biorxiv.org/content/10.1101/2025.01.06.631535v2.full
 OE_len_threshold1 = 0.33
 OE_len_threshold2 = 2
-combinedLPSStdev_min_threshold = 0.99  # minimum percentile of combinedLPSStdev to keep
+combinedLPSStdev_percentile_min_threshold = 0.8  # minimum percentile of combinedLPSStdev to keep
+combinedLPSStdev_min_threshold = 0.2             # minimum combinedLPSStdev to keep
+
 total = len(df)
 df = df[(df["OE_len"] <= OE_len_threshold1) 
     | (df["OE_len"] >= OE_len_threshold2) 
-    | (df["combinedLPSStdev_percentile"] >= combinedLPSStdev_min_threshold)].copy()
+    | (df["combinedLPSStdev_percentile"] >= combinedLPSStdev_percentile_min_threshold)
+    | (df["combinedLPSStdev"] >= combinedLPSStdev_min_threshold)
+].copy()
 
-print(f"Kept {len(df):,d} out of {total:,d} ({(len(df) / total):.1%}) intervals after filtering by OE_len <= {OE_len_threshold1} or >= {OE_len_threshold2} or combinedLPSStdev_percentile >= {combinedLPSStdev_min_threshold}")
-print(f"Of these, {sum(df['OE_len'] <= OE_len_threshold1):,d} have OE_len <= {OE_len_threshold1}, {sum(df['OE_len'] >= OE_len_threshold2):,d} have OE_len >= {OE_len_threshold2}, {sum(df['combinedLPSStdev_percentile'] >= combinedLPSStdev_min_threshold):,d} have combinedLPSStdev_percentile >= {combinedLPSStdev_min_threshold}")
+print(f"Kept {len(df):,d} out of {total:,d} ({(len(df) / total):.1%}) intervals after filtering by OE_len <= {OE_len_threshold1} or >= {OE_len_threshold2} or combinedLPSStdev_percentile >= {combinedLPSStdev_percentile_min_threshold}")
+print(f"Of these, {sum(df['OE_len'] <= OE_len_threshold1):,d} have OE_len <= {OE_len_threshold1}, {sum(df['OE_len'] >= OE_len_threshold2):,d} have OE_len >= {OE_len_threshold2}, {sum(df['combinedLPSStdev_percentile'] >= combinedLPSStdev_percentile_min_threshold):,d} have combinedLPSStdev_percentile >= {combinedLPSStdev_percentile_min_threshold}, {sum(df['combinedLPSStdev'] >= combinedLPSStdev_min_threshold):,d} have combinedLPSStdev >= {combinedLPSStdev_min_threshold}")
 
 # Parse additional table provided by Matt Danzi that contains the motifs
 df2_path = "longestPureSegmentQuantiles.txt.gz"
