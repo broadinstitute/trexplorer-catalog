@@ -5,7 +5,7 @@ import pandas as pd
 
 os.chdir(os.path.dirname(__file__))
 
-table_path = "Danzi_2025_OE_or_LPSStdev_outliers.overlap_with_TRExplorer_v2.tsv.gz"
+table_path = "Danzi_2025_OE_or_LPSStdev_outliers.narrow_adotto_boundaries.only_matching_motif_lengths.overlap_with_TRExplorer_v2.tsv.gz"
 
 print(f"Processing {table_path}")
 df = pd.read_table(table_path)

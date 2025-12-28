@@ -45,8 +45,8 @@ def get_percentile_from_allele_histogram_dict(allele_histogram_dict, percentile)
 
 def get_stdev_of_allele_histogram_dict(allele_histogram_dict):
     total = sum(allele_histogram_dict.values())
-    mean = sum(repeat_number * count for repeat_number, count in allele_histogram_dict.items()) / total
-    return (sum((repeat_number - mean) ** 2 * count for repeat_number, count in allele_histogram_dict.items()) / total) ** 0.5
+    mean = sum(repeat_number * count for repeat_number, count in allele_histogram_dict.items()) / max(1, total)
+    return (sum((repeat_number - mean) ** 2 * count for repeat_number, count in allele_histogram_dict.items()) / max(1, total)) ** 0.5
 
 #%%
 

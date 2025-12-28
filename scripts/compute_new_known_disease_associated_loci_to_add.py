@@ -75,7 +75,8 @@ def get_strchive_entries_not_in_gnomad(gnomad_catalog):
 
 
     for d in results.values():
-        assert len(d["reference_motif_reference_orientation"]) == 1, d
+        if len(d["reference_motif_reference_orientation"]) != 1:
+            raise ValueError(f"Expected exactly 1 reference_motif_reference_orientation, got {len(d['reference_motif_reference_orientation'])}: {d}")
         d["reference_motif_reference_orientation"] = d["reference_motif_reference_orientation"][0]
         d["CanonicalMotif"] = compute_canonical_motif(d["reference_motif_reference_orientation"])
 

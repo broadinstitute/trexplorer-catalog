@@ -55,7 +55,7 @@ def main():
     args = parser.parse_args()
 
     if ".bed" not in args.input_trgt_catalog_bed_path:
-        parser.error(f"Input path {args.input_trgt_catalog_bed_path} path must does not have a '.bed' suffix")
+        parser.error(f"Input path {args.input_trgt_catalog_bed_path} must have a '.bed' suffix")
 
     if not args.output_bed_path:
         args.output_bed_path = re.sub(".bed(.b?gz)?$", "", args.input_trgt_catalog_bed_path)

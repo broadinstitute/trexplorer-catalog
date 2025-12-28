@@ -14,11 +14,11 @@ if not os.path.isfile(os.path.expanduser(args.reference_fasta)):
 
 # Export all ClinVar variants to a VCF with the following info field keys: clinsig, stars, clinvarid, phenotypes.
 # For example: clinsig=Pathogenic;stars=1;clinvarid=2994835;phenotypes=Peroxisome biogenesis disorder, complementation group 7
-local_clinvar_vcf_path = export_clinvar_vcf(only_pathogenic=True, include_phenotypes=True)
-#local_clinvar_vcf_path = "clinvar_2025_11_03.vcf.bgz"
+#local_clinvar_vcf_path = export_clinvar_vcf(only_pathogenic=True, include_phenotypes=True)
+local_clinvar_vcf_path = "clinvar_2025_11_03.vcf.bgz"
 
 # Determine which insertions and deletions in the ClinVar VCF represent tandem repeat expansions or contractions
-cmd = f"python3 -m str_analysis.filter_vcf_to_tandem_repeats  catalog --min-tandem-repeat-length 9 --min-repeats 3 --write-tsv "
+cmd = f"python3 -m str_analysis.filter_vcf_to_tandem_repeats  catalog --min-tandem-repeat-length 9 --min-repeats 3 --write-detailed "
 cmd += f"--trf-executable {args.trf_executable} "  # --dont-run-trf
 cmd += " ".join(f"--copy-info-field-keys-to-tsv {k}" for k in ["clinsig", "stars", "clinvarid", "phenotypes"])
 cmd += f" -R {args.reference_fasta} "
@@ -26,7 +26,7 @@ cmd += f"{local_clinvar_vcf_path} "
 cmd += "--show-progress --verbose"
 
 print(cmd)
-#os.system(cmd)
+os.system(cmd)
 
 tsv_prefix = local_clinvar_vcf_path.replace(".vcf.bgz", "") 
 df = pd.read_table(f"{tsv_prefix}.tandem_repeats.tsv.gz")
@@ -52,6 +52,3 @@ for detected_using_trf in [False, True]:
     else:
         print(f"Expansion/contractions at {total:,d} pure or mostly pure TR loci that were identified by scanning variants in the ClinVar VCF:")
     print(summary_df.to_string(index=False))
-
-
-        

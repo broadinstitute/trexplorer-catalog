@@ -111,8 +111,10 @@ run(f"mkdir -p {release_draft_folder}")
 log_file_path = f"{release_draft_folder}/{args.output_prefix}.all_steps.log"
 print(f"Writing to log file: {log_file_path}")
 tee_stdout_and_stderr_to_log_file(log_file_path)
-    
+
 start_time = time.time()
+start_datetime = datetime.datetime.now()
+print(f"Started at: {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 
 # STEP #1  (already done for hg38, and results are publicly available. Will just download them in step #2)
 #git clone git@github.com:broadinstitute/colab-repeat-finder.git
@@ -551,4 +553,13 @@ EOF
 
     diff = time.time() - start_time
     print(f"Done with comparisons. Took {diff//3600:.0f}h, {(diff%3600)//60:.0f}m, {diff%60:.0f}s")
+
+# Print final timing summary
+end_datetime = datetime.datetime.now()
+total_elapsed_time = time.time() - start_time
+print("\n" + "="*80)
+print(f"Started at:  {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"Finished at: {end_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"Total time:  {total_elapsed_time//3600:.0f}h, {(total_elapsed_time%3600)//60:.0f}m, {total_elapsed_time%60:.0f}s")
+print("="*80)
 

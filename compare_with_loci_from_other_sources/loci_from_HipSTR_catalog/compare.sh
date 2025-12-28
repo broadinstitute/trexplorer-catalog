@@ -5,7 +5,7 @@ echo Comparing  to ${catalog}
 echo ================================================================================================
 set -ex
 
-#python3 ../compare_loci_with_catalog.py --catalog ${catalog}  --print-stats 2  --write-bed-files-with-subsets ${hipstr_catalog}
+python3 ../compare_loci_with_catalog.py --catalog ${catalog}  --print-stats 2  --write-bed-files-with-subsets ${hipstr_catalog}
 python3 ../compute_motif_stats.py $(echo ${hipstr_catalog} | cut -f 2 -d : )
 
 set +ex

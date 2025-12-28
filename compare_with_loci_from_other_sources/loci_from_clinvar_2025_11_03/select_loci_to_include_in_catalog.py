@@ -1,12 +1,9 @@
-#%%
-import collections
 import os
 import pandas as pd
 
 os.chdir(os.path.dirname(__file__))
 
 table_path = "clinvar_2025_11_03.tandem_repeats.overlap_with_TRExplorer_v2.tsv.gz"
-
 
 print(f"Processing {table_path}")
 df = pd.read_table(table_path)
@@ -28,8 +25,8 @@ for index, row in df.iterrows():
         continue
     is_unique=True
     if previous_row is not None and previous_row["chrom"] == row["chrom"]:
-        intersection_size = min(row["end_1based"], previous_row["end_1based"]) - max(row["start_0based"], previous_row["start_0based"])
-        union_size = max(row["end_1based"], previous_row["end_1based"]) - min(row["start_0based"], previous_row["start_0based"])
+        intersection_size = max(0, min(row["end_1based"], previous_row["end_1based"]) - max(row["start_0based"], previous_row["start_0based"]))
+        union_size = max(1, max(row["end_1based"], previous_row["end_1based"]) - min(row["start_0based"], previous_row["start_0based"]))
         jaccard_similarity = intersection_size / union_size
         if jaccard_similarity >= 0.2 or (jaccard_similarity > 0 and row["motif"] == previous_row["motif"]):
             is_unique = False

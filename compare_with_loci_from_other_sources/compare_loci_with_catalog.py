@@ -625,8 +625,8 @@ def compute_overlap_score(main_catalog_interval, start_0based, end_1based, min_m
     if main_catalog_interval.begin == start_0based and main_catalog_interval.end == end_1based:
         return OVERLAP_SCORE_FOR_EXACT_MATCH
 
-    union_size = max(main_catalog_interval.end, end_1based) - min(main_catalog_interval.begin, start_0based)
     intersection_size = main_catalog_interval.overlap_size(start_0based, end_1based)
+    union_size = max(main_catalog_interval.end, end_1based) - min(main_catalog_interval.begin, start_0based)
     if abs(intersection_size - union_size) <= 2*min_motif_size:
         return OVERLAP_SCORE_FOR_DIFF_2_REPEATS
     jaccard_similarity = intersection_size / union_size

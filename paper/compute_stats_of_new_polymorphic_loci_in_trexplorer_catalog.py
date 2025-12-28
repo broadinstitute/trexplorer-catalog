@@ -7,7 +7,7 @@ import tqdm
 
 from str_analysis.utils.misc_utils import parse_interval
 
-IS_POLYMORPHIC_THRESHOLD = 0.25
+IS_POLYMORPHIC_THRESHOLD = 0.3
 
 stats_lookup = collections.defaultdict(dict)
 
@@ -74,8 +74,8 @@ with gzip.open(os.path.expanduser(trexplorer_catalog_json_path), "rt") as f:
                 if record["AoU1027_ModeAllele"] == record["HPRC256_ModeAllele"]:
                     counters[record["Source"] + ":has_only_one_allele_in_HPRC256_and_AoU1027"] += 1
 
-            if float(record["HPRC256_Stdev"]) < IS_POLYMORPHIC_THRESHOLD and float(record["AoU1027_Stdev"]) < IS_POLYMORPHIC_THRESHOLD:
-                counters[record["Source"] + f":stdev_less_than_{IS_POLYMORPHIC_THRESHOLD}_in_HPRC256_and_AoU1027"] += 1
+            if float(record["HPRC256_Stdev"]) > IS_POLYMORPHIC_THRESHOLD or float(record["AoU1027_Stdev"]) > IS_POLYMORPHIC_THRESHOLD:
+                counters[record["Source"] + f":stdev_greater_than_{IS_POLYMORPHIC_THRESHOLD}_in_HPRC256_or_AoU1027"] += 1
 
 
         is_in_other_catalogs = catalog_interval_trees[chrom].overlap(start_0based, end_1based)
