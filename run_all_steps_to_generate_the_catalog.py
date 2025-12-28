@@ -7,7 +7,7 @@ import re
 import subprocess
 import time
 
-from str_analysis.utils.file_utils import file_exists
+from str_analysis.utils.file_utils import file_exists, tee_stdout_and_stderr_to_log_file
 
 # install str-analysis python package
 os.system("""
@@ -108,7 +108,10 @@ chdir(working_dir)
 release_draft_folder = os.path.abspath(f"release_draft_{args.timestamp}")
 run(f"mkdir -p {release_draft_folder}")
 
-
+log_file_path = f"{release_draft_folder}/{args.output_prefix}.all_steps.log"
+print(f"Writing to log file: {log_file_path}")
+tee_stdout_and_stderr_to_log_file(log_file_path)
+    
 start_time = time.time()
 
 # STEP #1  (already done for hg38, and results are publicly available. Will just download them in step #2)
@@ -127,7 +130,8 @@ source_catalogs_in_order = [
     ("TRExplorerV1:Illumina174kPolymorphicTRs", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/illumina_variant_catalog.sorted.bed.gz"),
     ("TRExplorerV1:PerfectRepeatsInReference", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
     ("TRExplorerV1:PolymorphicTRsInT2TAssemblies", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
-    ("TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2/combined.321_catalogs.tandem_repeats.bed.gz"),
+    ("TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_27/combined.321_catalogs.tandem_repeats.bed.gz"),
+    #("TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2/combined.321_catalogs.tandem_repeats.bed.gz"),    
     #("TRExplorerV2:VamosCatalog", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/vamos_catalog.ori.v2.1.bed.gz"),
 ]
 
@@ -160,7 +164,8 @@ if not args.dry_run:
 
         # check the number of primary disease-associated loci, not counting adjacent repeats and historic candidate loci that
         # are not currently considered monogenic
-        assert len(primary_disease_associated_loci) == 63, f"Expected 63 primary disease-associated loci, found {len(primary_disease_associated_loci)}"
+        if len(primary_disease_associated_loci) != 63:
+            raise ValueError(f"Expected 63 primary disease-associated loci, found {len(primary_disease_associated_loci)}")
 
 primary_disease_associated_loci_path = source_catalog_paths["TRExplorerV1:KnownDiseaseAssociatedLoci"].replace(
     ".json.gz", ".primary_disease_associated_loci.json.gz")
