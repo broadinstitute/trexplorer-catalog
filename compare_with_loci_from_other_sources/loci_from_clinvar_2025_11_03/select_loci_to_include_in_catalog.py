@@ -13,25 +13,19 @@ df = pd.read_table(table_path)
 total = len(df)
 
 df["motif_size"] = df["motif"].str.len()
+df["locus_size"] = df["end_1based"] - df["start_0based"]
+df["repeat_count"] = df["locus_size"] / df["motif_size"]
 
 df = df[df["overlap_score"] <= OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2].copy()
+print(f"Kept {len(df):,d} out of {total:,d} loci after filtering by overlap score")
+
+# keep only loci that span at least 1 repeat in the reference genome
+df = df[df["repeat_count"] >= 1].copy()
+print(f"Kept {len(df):,d} loci after filtering for >= 1 repeat in reference genome")
 
 # remove loci that overlap with self (ie. with other loci in this table after filtering)
 df.sort_values(by=["chrom", "start_0based", "end_1based", "motif"], inplace=True)
-previous_row = None
-rows_to_keep = []
-zero_width_counter = 0
-for index, row in df.iterrows():
-    if row["start_0based"] >= row["end_1based"]:
-        zero_width_counter += 1
-        continue
 
-    rows_to_keep.append(row)
-
-if zero_width_counter > 0:
-    print(f"Keeping {len(rows_to_keep):,d} out of {total:,d} loci after removing {zero_width_counter:,d} zero-width loci")
-
-df = pd.DataFrame(rows_to_keep)
 
 print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:") 
 for motif_size, count in sorted(df["motif_size"].value_counts().items()):

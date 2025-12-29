@@ -132,9 +132,11 @@ source_catalogs_in_order = [
     ("TRExplorerV1:Illumina174kPolymorphicTRs", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/illumina_variant_catalog.sorted.bed.gz"),
     ("TRExplorerV1:PerfectRepeatsInReference", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
     ("TRExplorerV1:PolymorphicTRsInT2TAssemblies", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
+    ("TRExplorerV2:KnownDiseaseAssociatedLoci", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
+    ("TRExplorerV2:FunctionalVNTRs", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/functional_VNTRs.loci_to_include_in_catalog.bed.gz"),
     ("TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_27/combined.321_catalogs.tandem_repeats.bed.gz"),
-    #("TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2/combined.321_catalogs.tandem_repeats.bed.gz"),    
-    #("TRExplorerV2:VamosCatalog", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/vamos_catalog.ori.v2.1.bed.gz"),
+    ("TRExplorerV2:AdottoTRsPolymorphicOrConstrainedInDanzi2025", "https://storage.googleapis.com/v2.0/Danzi_2025.adotto.loci_to_include_in_catalog.bed.gz"),
+    ("TRExplorerV2:ClinVarIndelsThatAreTRs2025", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/clinvar_2025_11_03.loci_to_include_in_catalog.bed.gz"),
 ]
 
 source_catalog_paths = {}
@@ -254,7 +256,7 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
     # way to merge adjacent loci where needed.
     source_catalog_paths_for_merge_command1 = " ".join([
         f"{catalog_name}:{filtered_source_catalog_paths[catalog_name]}" for catalog_name, _ in source_catalogs_in_order
-        if catalog_name != "TRExplorerV2:PolymorphicTRsInT2TAssembliesV2"
+        if not catalog_name.startswith("TRExplorerV2:")
     ])
 
     run(f"""python3 -u -m str_analysis.merge_loci --verbose \
@@ -283,7 +285,7 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
        f"merged:{output_prefix}.merged1.annotated.json.gz",
     ] + [
        f"{catalog_name}:{filtered_source_catalog_paths[catalog_name]}" for catalog_name, _ in source_catalogs_in_order
-       if catalog_name == "TRExplorerV2:PolymorphicTRsInT2TAssembliesV2"
+       if catalog_name.startswith("TRExplorerV2:")
     ])
 
     run(f"""python3 -u -m str_analysis.merge_loci --verbose \
