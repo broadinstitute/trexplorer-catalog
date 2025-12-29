@@ -8,6 +8,7 @@ import collections
 import intervaltree
 import gzip
 import matplotlib.pyplot as plt
+import numpy as np
 import os
 import pandas as pd
 import pyfaidx
@@ -287,10 +288,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_
         print()
         print(f"All loci in {new_catalog_name}:")
         for _, row in df[df[f"{new_catalog_name}_reference_region"].notna()].iterrows():
-            #print(" "*8, "\t".join(map(str, [row[f"{new_catalog_name}_reference_region"], row["match_found?"]])))
             print(" "*8, "\t".join(map(str, [row[f"{new_catalog_name}_reference_region"], row["match_found?"]])))
-            print(" "*8, "::::", "\t".join(map(str, [f"{k} = {v:0.2f}" for k, v in row.to_dict().items() if "purity" in k])))
-            print(" "*8, "::::", "\t".join(map(str, [f"{k} = {v}" for k, v in row.to_dict().items() if "optimal_motif_" in k])))
 
     if args.skip_plots:
         return
@@ -505,6 +503,59 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_
         plt.savefig(f"{args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.reference_repeat_count_distribution.png")
         print(f"Wrote reference repeat count distribution to {args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.reference_repeat_count_distribution.png")
         plt.close()
+
+    # Purity distribution plot for loci absent from main catalog or with low Jaccard similarity
+    if new_catalog_has_motifs:
+        # Filter for the two categories of interest
+        absent_df = df[df["overlap_score"] == OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG]
+        low_jaccard_df = df[df["overlap_score"] == OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2]
+
+        # Get purity values
+        absent_purities = absent_df[f"{new_catalog_name}_purity_of_motif"].dropna()
+        low_jaccard_purities = low_jaccard_df[f"{new_catalog_name}_purity_of_motif"].dropna()
+
+        if len(absent_purities) > 0 or len(low_jaccard_purities) > 0:
+            # Create purity bins (0 to 1 in increments of 0.05)
+            purity_bins = [i * 0.05 for i in range(21)]  # 0, 0.05, 0.10, ..., 1.00
+            purity_bin_labels = [f"{i*0.05:.2f}" for i in range(20)]
+
+            # Bin the purities
+            absent_binned = np.histogram(absent_purities, bins=purity_bins)[0]
+            low_jaccard_binned = np.histogram(low_jaccard_purities, bins=purity_bins)[0]
+
+            # Create the plot
+            fig, ax = plt.subplots(figsize=(14, 6))
+            x_positions = np.arange(len(purity_bin_labels))
+            bar_width = 0.35
+
+            # Colors matching the overlap distribution plot scheme
+            absent_color = (0.0, 0.0, 0.7, 0.5)  # blue for absent
+            low_jaccard_color = (0.95, 0.0, 0.0, 0.5)  # red for low Jaccard
+
+            # Plot bars side by side
+            bars1 = ax.bar(x_positions - bar_width/2, absent_binned, bar_width,
+                          label=OVERLAP_SCORE_MAP[OVERLAP_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG],
+                          color=absent_color, alpha=0.8)
+            bars2 = ax.bar(x_positions + bar_width/2, low_jaccard_binned, bar_width,
+                          label=OVERLAP_SCORE_MAP[OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2],
+                          color=low_jaccard_color, alpha=0.8)
+
+            ax.set_xlabel("Motif Purity")
+            ax.set_ylabel("Count")
+            ax.set_title(f"Motif purity distribution for {new_catalog_name.replace('_', ' ')} loci with low or no overlap", pad=10)
+            ax.set_xticks(x_positions)
+            ax.set_xticklabels(purity_bin_labels, rotation=45, ha="right")
+            ax.legend(frameon=False, loc="best")
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray")
+
+            plt.tight_layout()
+            output_path = f"{args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.purity_distribution_low_overlap.png"
+            plt.savefig(output_path)
+            print(f"Wrote purity distribution to {output_path}")
+            plt.close()
 
     # horizontal bar plot of the values in the 'overlap' column with color by 'motif_match' column
     plt.figure(figsize=(12, 6))

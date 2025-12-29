@@ -1,6 +1,9 @@
 #%%
 import os
 import pandas as pd
+import sys
+sys.path.append('../')
+from compare_loci_with_catalog import OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66
 
 os.chdir(os.path.dirname(__file__))
 
@@ -15,8 +18,8 @@ for table_path in table_paths:
     total = len(df)
     df["motif_size"] = df["motif"].str.len()
 
-    # filter to loci that don't match anything in the catalog and have motif size > 2
-    df = df[df["overlap_score"] < 5].copy()
+    # select loci that don't match anything in the catalog and have motif size > 2
+    df = df[df["overlap_score"] < OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66].copy()
 
     print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:") 
     print(df["motif_size"].value_counts())

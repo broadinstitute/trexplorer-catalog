@@ -3,9 +3,13 @@ import collections
 import os
 import pandas as pd
 
+import sys
+sys.path.append('../')
+from compare_loci_with_catalog import OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66
+
 os.chdir(os.path.dirname(__file__))
 
-table_path = "known_disease_associated_loci_v2.overlap_with_TRExplorer_v2.tsv.gz"
+table_path = "known_disease_associated_loci_v2.overlap_with_TRExplorer_v1.tsv.gz"
 
 print(f"Processing {table_path}")
 df = pd.read_table(table_path)
@@ -13,12 +17,12 @@ total = len(df)
 
 df["motif_size"] = df["motif"].str.len()
 
-df = df[df["overlap_score"] <= 5].copy()
+df = df[df["overlap_score"] < OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66].copy()
 
 print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:") 
 print(df["motif_size"].value_counts())
 
-output_filename_prefix = table_path.replace(".overlap_with_TRExplorer_v2.tsv.gz", "") 
+output_filename_prefix = table_path.replace(".overlap_with_TRExplorer_v1.tsv.gz", "") 
 output_tsv_path = f"{output_filename_prefix}.loci_to_include_in_catalog.tsv.gz"
 output_bed_path = f"{output_filename_prefix}.loci_to_include_in_catalog.bed"
 

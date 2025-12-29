@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import pyfaidx
 
-from str_analysis.utils.find_motif_utils import find_highest_purity_motif_length_for_interval
+from str_analysis.utils.find_motif_utils import adjust_motif_and_boundaries_to_maximize_purity
 
 
 os.chdir(os.path.dirname(__file__))
@@ -25,20 +25,24 @@ df = df[df["overlap"].isin({
     "absent from TRExplorer_v2 catalog",
 })].copy()
 
-def compute_highest_purity_motif(row):
-    optimal_motif, _, _ = find_highest_purity_motif_length_for_interval(
-        pyfaidx_reference_fasta_obj, str(row.chrom), row.HipSTR_start_0based, row.HipSTR_end_1based,
-        min_motif_length=len(row.HipSTR_motif), max_motif_length=len(row.HipSTR_motif))
+print(f"Adjusting boundaries and motifs for {len(df):,d} loci...")
+def adjust_locus(row):
+    adjusted_start, adjusted_end, adjusted_motif, was_adjusted, purity = adjust_motif_and_boundaries_to_maximize_purity(
+        pyfaidx_reference_fasta_obj, str(row.chrom), row.HipSTR_start_0based, row.HipSTR_end_1based, row.HipSTR_motif
+    )
+    return pd.Series({
+        'adjusted_start_0based': adjusted_start,
+        'adjusted_end_1based': adjusted_end,
+        'adjusted_motif': adjusted_motif,
+        'was_adjusted': was_adjusted,
+        'purity': purity
+    })
 
-    return optimal_motif
+df[['adjusted_start_0based', 'adjusted_end_1based', 'adjusted_motif', 'was_adjusted', 'purity']] = df.apply(adjust_locus, axis=1)
 
+print(f"Adjusted {df['was_adjusted'].sum():,d} out of {len(df):,d} loci")
 
-df["HighestPurityMotifOfSameLengthAsOriginal"] = df.apply(compute_highest_purity_motif, axis=1)
-
-print(f"Will change the motif for", sum(df["HighestPurityMotifOfSameLengthAsOriginal"] != df["HipSTR_motif"]), "out of",
-      len(df), "loci")
-
-df[["chrom", "HipSTR_start_0based",  "HipSTR_end_1based", "HighestPurityMotifOfSameLengthAsOriginal"]].to_csv(
+df[["chrom", "adjusted_start_0based", "adjusted_end_1based", "adjusted_motif"]].to_csv(
     output_path, index=False, header=False, sep="\t")
 
 os.system(f"bgzip -f {output_path}")

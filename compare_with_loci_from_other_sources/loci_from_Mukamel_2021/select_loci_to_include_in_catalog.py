@@ -1,6 +1,12 @@
 #%%
 import os
 import pandas as pd
+import pyfaidx
+
+import sys
+sys.path.append('../')
+from compare_loci_with_catalog import OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66
+from str_analysis.utils.find_motif_utils import adjust_motif_and_boundaries_to_maximize_purity
 
 os.chdir(os.path.dirname(__file__))
 
@@ -16,10 +22,36 @@ for table_path in table_paths:
     df["motif_size"] = df["motif"].str.len()
 
     # filter to loci that don't match anything in the catalog and have motif size > 2
-    df = df[df["overlap_score"] < 5].copy()
+    df = df[df["overlap_score"] < OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66].copy()
 
-    print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:") 
+    print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:")
     print(df["motif_size"].value_counts())
+
+    # Load reference genome and adjust boundaries/motifs
+    print("Loading reference genome...")
+    pyfaidx_reference_fasta_obj = pyfaidx.Fasta(os.path.expanduser("~/hg38.fa"), one_based_attributes=False, as_raw=True)
+
+    print(f"Adjusting boundaries and motifs for {len(df):,d} loci...")
+    def adjust_locus(row):
+        adjusted_start, adjusted_end, adjusted_motif, was_adjusted, purity = adjust_motif_and_boundaries_to_maximize_purity(
+            pyfaidx_reference_fasta_obj, str(row.chrom), row.start_0based, row.end_1based, row.motif
+        )
+        return pd.Series({
+            'adjusted_start_0based': adjusted_start,
+            'adjusted_end_1based': adjusted_end,
+            'adjusted_motif': adjusted_motif,
+            'was_adjusted': was_adjusted,
+            'purity': purity
+        })
+
+    df[['adjusted_start_0based', 'adjusted_end_1based', 'adjusted_motif', 'was_adjusted', 'purity']] = df.apply(adjust_locus, axis=1)
+
+    print(f"Adjusted {df['was_adjusted'].sum():,d} out of {len(df):,d} loci")
+
+    # Update the main columns with adjusted values
+    df['start_0based'] = df['adjusted_start_0based']
+    df['end_1based'] = df['adjusted_end_1based']
+    df['motif'] = df['adjusted_motif']
 
     output_filename_prefix = table_path.replace(".overlap_with_TRExplorer_v2.tsv.gz", "") 
     output_tsv_path = f"{output_filename_prefix}.loci_to_include_in_catalog.tsv.gz"

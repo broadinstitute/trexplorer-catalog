@@ -1,4 +1,3 @@
-# 	    Danzi_2025_outliers__wide_boundaries:Danzi_2025_OE_or_LPSStdev_outliers.wide_boundaries.bed.gz \
     
 for catalog in TRExplorer_v2:../../results__2025-12-28/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz
 do

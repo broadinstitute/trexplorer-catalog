@@ -17,38 +17,30 @@ if not os.path.isfile(os.path.expanduser(args.reference_fasta)):
 #local_clinvar_vcf_path = export_clinvar_vcf(only_pathogenic=True, include_phenotypes=True)
 local_clinvar_vcf_path = "clinvar_2025_11_03.vcf.bgz"
 
+def run(cmd):
+    print(cmd)
+    os.system(cmd)
+
+local_clinvar_vcf_prefix = local_clinvar_vcf_path.replace('.vcf.bgz', '')
+run(f"gunzip -c {local_clinvar_vcf_path} > {local_clinvar_vcf_prefix}.vcf")
+run(f"rm {local_clinvar_vcf_path}.tbi")
+
+run(f"bgzip -f {local_clinvar_vcf_prefix}.vcf")
+run(f"tabix -f {local_clinvar_vcf_prefix}.vcf.gz")
+    
+
 # Determine which insertions and deletions in the ClinVar VCF represent tandem repeat expansions or contractions
-cmd = f"python3 -m str_analysis.filter_vcf_to_tandem_repeats  catalog --min-tandem-repeat-length 9 --min-repeats 3 --write-detailed "
+cmd = f"python3 -m str_analysis.filter_vcf_to_tandem_repeats catalog --min-tandem-repeat-length 9 --min-repeats 3 --write-detailed --trf-min-repeats-in-reference 2 --trf-min-purity 0.66 "
 cmd += f"--trf-executable {args.trf_executable} "  # --dont-run-trf
 cmd += " ".join(f"--copy-info-field-keys-to-tsv {k}" for k in ["clinsig", "stars", "clinvarid", "phenotypes"])
 cmd += f" -R {args.reference_fasta} "
-cmd += f"{local_clinvar_vcf_path} "
+cmd += f"{local_clinvar_vcf_prefix}.vcf.gz "
 cmd += "--show-progress --verbose"
+run(cmd)
 
-print(cmd)
-os.system(cmd)
-
-tsv_prefix = local_clinvar_vcf_path.replace(".vcf.bgz", "") 
-df = pd.read_table(f"{tsv_prefix}.tandem_repeats.tsv.gz")
-df["DetectionMode"] = df["DetectionMode"].str.replace("merged:", "")
-df["DetectedUsingTRF"] = (df["DetectionMode"] == "trf")
+cmd2 = f"python3 -m str_analysis.filter_vcf_to_tandem_repeats merge --write-detailed -R {args.reference_fasta} --show-progress --verbose {local_clinvar_vcf_prefix}.tandem_repeats.detailed.bed.gz"
+run(cmd2)
 
 
-output_bed_path = f"{tsv_prefix}.tandem_repeats.excluding_TRF.bed"
-df_without_trf = df[~df["DetectedUsingTRF"]]
-df_without_trf[["Chrom", "Start0Based", "End1Based", "Motif"]].to_csv(output_bed_path, sep="\t", header=False, index=False)
-os.system(f"bgzip -f {output_bed_path}")
-os.system(f"tabix -f {output_bed_path}.gz")
-print(f"Wrote {len(df_without_trf):,d} rows to {output_bed_path}.gz")
+run("rm -rf trf_working_dir")
 
-for detected_using_trf in [False, True]:
-    print("-" * 120)
-    summary_df = df[df["DetectedUsingTRF"] == detected_using_trf]
-    total = len(summary_df)
-    summary_df = summary_df[["clinsig", "stars"]].value_counts().reset_index().sort_values(by=["clinsig", "stars"], ascending=False)
-    summary_df.rename({"count": "TR loci"}, axis=1, inplace=True)
-    if detected_using_trf:
-        print(f"Expansion/contractions at {total:,d} interrupted TR loci that were identified by running TRF on variants in the ClinVar VCF:")
-    else:
-        print(f"Expansion/contractions at {total:,d} pure or mostly pure TR loci that were identified by scanning variants in the ClinVar VCF:")
-    print(summary_df.to_string(index=False))
