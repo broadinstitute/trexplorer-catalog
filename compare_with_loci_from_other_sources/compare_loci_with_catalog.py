@@ -287,7 +287,10 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_
         print()
         print(f"All loci in {new_catalog_name}:")
         for _, row in df[df[f"{new_catalog_name}_reference_region"].notna()].iterrows():
+            #print(" "*8, "\t".join(map(str, [row[f"{new_catalog_name}_reference_region"], row["match_found?"]])))
             print(" "*8, "\t".join(map(str, [row[f"{new_catalog_name}_reference_region"], row["match_found?"]])))
+            print(" "*8, "::::", "\t".join(map(str, [f"{k} = {v:0.2f}" for k, v in row.to_dict().items() if "purity" in k])))
+            print(" "*8, "::::", "\t".join(map(str, [f"{k} = {v}" for k, v in row.to_dict().items() if "optimal_motif_" in k])))
 
     if args.skip_plots:
         return

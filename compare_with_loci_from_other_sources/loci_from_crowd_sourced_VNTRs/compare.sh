@@ -7,13 +7,13 @@ label="$(cat functional_vntrs.bed | wc -l)_known_VNTRs"
     #Platinum_v1:../human_GRCh38_no_alt_analysis_set.platinumTRs-v1.0.trgt.catalog.bed.gz \
     #Adotto_v2_1:../adotto_tr_catalog_v1.2.bed.gz \
     #Vamos_v2_1:../vamos_catalog.ori.v2.1.bed.gz \
-    #TRExplorer_v2:../../results__2025-12-24/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz \
+    #TRExplorer_v2:../../results__2025-12-28/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz \
 
 #    TRExplorer_v2_poly_only_one:$(realpath ~/code/str-truth-set-v2/filter_vcfs_v2/results/combined.321_catalogs.tandem_repeats.detailed.bed.gz) \
 #    TRExplorer_v2_poly_allow_multiple:$(realpath ~/code/str-truth-set-v2/filter_vcfs_v2/results__allow_multiple/combined.321_catalogs.tandem_repeats.detailed.bed.gz) \
 
 for catalog in \
-  TRExplorer_v2:../../results__2025-12-24/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz \
+  TRExplorer_v2:../../results__2025-12-28/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz \
 ; do
     echo ================================================================================================
     echo Comparing ${label} to ${catalog}

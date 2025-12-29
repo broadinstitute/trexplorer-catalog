@@ -3,7 +3,7 @@
 #catalog=Vamos_v2_1:../vamos_catalog.ori.v2.1.bed.gz
 #catalog=TRExplorer_v1:../../results__2025-09-04/release_draft_2025-09-04/repeat_catalog_v1.hg38.1_to_1000bp_motifs.bed.gz
 
-catalog=TRExplorer_v2:../../results__2025-12-24/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz ; do
+catalog=TRExplorer_v2:../../results__2025-12-28/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz ; do
 
 echo ================================================================================================
 echo Comparing Mukamel_2021 to ${catalog}
