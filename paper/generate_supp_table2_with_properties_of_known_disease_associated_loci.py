@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-df = pd.read_json("paper/TR_catalog.63_loci.20251010_173909.json.gz")
+df = pd.read_json("TR_catalog.63_loci.20251229_005446.json.gz")
 
 # column names:
 """
@@ -16,9 +16,9 @@ df = pd.read_json("paper/TR_catalog.63_loci.20251010_173909.json.gz")
  'RefseqGeneId', 'RefseqTranscriptId', 'ManeGeneRegion', 'ManeGeneName',
  'ManeGeneId', 'ManeTranscriptId', 'TenK10K_AlleleHistogram',
  'TenK10K_ModeAllele', 'TenK10K_Stdev', 'TenK10K_Median',
- 'TenK10K_99thPercentile', 'HPRC100_AlleleHistogram',
- 'HPRC100_ModeAllele', 'HPRC100_Stdev', 'HPRC100_Median',
- 'HPRC100_99thPercentile', 'AoU1027_ModeAllele', 'AoU1027_Stdev',
+ 'TenK10K_99thPercentile', 'HPRC256_AlleleHistogram',
+ 'HPRC256_ModeAllele', 'HPRC256_Stdev', 'HPRC256_Median',
+ 'HPRC256_99thPercentile', 'AoU1027_ModeAllele', 'AoU1027_Stdev',
  'AoU1027_Median', 'AoU1027_99thPercentile', 'AoU1027_MaxAllele',
  'AoU1027_UniqueAlleles', 'AoU1027_OE_Length',
  'AoU1027_OE_LengthPercentile', 'AlleleFrequenciesFromIllumina174k',
@@ -37,7 +37,7 @@ df["TRsInRegion"] -= 1
 df["GencodeGeneRegion"] =  df["GencodeGeneRegion"].replace("CDS", "coding")
 
 df.sort_values([
-    "MotifSize", "CanonicalMotif", "GencodeGeneRegion", "KnownDiseaseAssociatedLocus",
+    "MotifSize", "CanonicalMotif", "KnownDiseaseAssociatedLocus", "GencodeGeneRegion", "KnownDiseaseAssociatedLocus",
 ], inplace=True)
 
 
@@ -45,8 +45,10 @@ rename_dict = {
   "KnownDiseaseAssociatedLocus": "Name",
   "ReferenceRegion": "Coordinates (hg38, 0-based)",
   "CanonicalMotif": "Motif (normalized)",
+  "MotifSize": "Motif Size",
   "GencodeGeneRegion": "Gene Region",
-  "HPRC100_Stdev": "Polymorphism (HPRC)",
+  "HPRC256_Stdev": "Polymorphism (HPRC256 stdev)",
+  "AoU1027_Stdev": "Polymorphism (AoU1027 stdev)",
   "FlanksAndLocusMappability": "Mappability",
   "VariationClusterSizeDiff": "Variation Cluster",
   "TRsInRegion": "Other TRs Nearby",
@@ -57,7 +59,8 @@ df.rename(columns=rename_dict, inplace=True)
 
 print(df.columns)
 print(df)
-df.to_csv("paper/table_of_properties_of_known_disease_associated_loci.tsv", sep="\t", index=False)
+output_path = "table_of_properties_of_known_disease_associated_loci.tsv"
+df.to_csv(output_path, sep="\t", index=False)
 
-print(f"Wrote {len(df):,d} loci to paper/table_of_properties_of_known_disease_associated_loci.tsv")
+print(f"Wrote {len(df):,d} loci to {output_path}")
 #%%
