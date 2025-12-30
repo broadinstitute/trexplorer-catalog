@@ -112,7 +112,7 @@ log_file_path = f"{release_draft_folder}/{args.output_prefix}.all_steps.log"
 print(f"Writing to log file: {log_file_path}")
 tee_stdout_and_stderr_to_log_file(log_file_path)
 
-start_time = time.time()
+script_start_time = time.time()
 start_datetime = datetime.datetime.now()
 print(f"Started at: {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -133,10 +133,10 @@ source_catalogs_in_order = [
     ("TRExplorerV1:PerfectRepeatsInReference", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
     ("TRExplorerV1:PolymorphicTRsInT2TAssemblies", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
     ("TRExplorerV2:KnownDiseaseAssociatedLoci", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
-    ("TRExplorerV2:FunctionalVNTRs", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/functional_VNTRs.loci_to_include_in_catalog.bed.gz"),
-    ("TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_27/combined.321_catalogs.tandem_repeats.bed.gz"),
-    ("TRExplorerV2:AdottoTRsPolymorphicOrConstrainedInDanzi2025", "https://storage.googleapis.com/v2.0/Danzi_2025.adotto.loci_to_include_in_catalog.bed.gz"),
-    ("TRExplorerV2:ClinVarIndelsThatAreTRs2025", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/clinvar_2025_11_03.loci_to_include_in_catalog.bed.gz"),
+    ("TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_29/combined.321_catalogs.tandem_repeats.bed.gz"),
+    #("TRExplorerV2:FunctionalVNTRs", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/functional_VNTRs.loci_to_include_in_catalog.bed.gz"),
+    #("TRExplorerV2:AdottoTRsPolymorphicOrConstrainedInDanzi2025", "https://storage.googleapis.com/v2.0/Danzi_2025.adotto.loci_to_include_in_catalog.bed.gz"),
+    #("TRExplorerV2:ClinVarIndelsThatAreTRs2025", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/clinvar_2025_11_03.loci_to_include_in_catalog.bed.gz"),
 ]
 
 source_catalog_paths = {}
@@ -502,8 +502,8 @@ EOF
 
     run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {annotated_catalog_path}", step_number=29)
 
-    # report hours, minutes, seconds relative to start_time
-    diff = time.time() - start_time
+    # report hours, minutes, seconds relative to script_start_time
+    diff = time.time() - script_start_time
     print(f"Done generating {output_prefix} catalog. Took {diff//3600:.0f}h, {(diff%3600)//60:.0f}m, {diff%60:.0f}s")
 
     if motif_size_label != "1_to_1000bp_motifs":
@@ -558,7 +558,7 @@ EOF
 
 # Print final timing summary
 end_datetime = datetime.datetime.now()
-total_elapsed_time = time.time() - start_time
+total_elapsed_time = time.time() - script_start_time
 print("\n" + "="*80)
 print(f"Started at:  {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 print(f"Finished at: {end_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
