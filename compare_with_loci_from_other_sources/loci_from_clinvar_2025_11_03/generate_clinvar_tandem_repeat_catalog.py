@@ -14,8 +14,8 @@ if not os.path.isfile(os.path.expanduser(args.reference_fasta)):
 
 # Export all ClinVar variants to a VCF with the following info field keys: clinsig, stars, clinvarid, phenotypes.
 # For example: clinsig=Pathogenic;stars=1;clinvarid=2994835;phenotypes=Peroxisome biogenesis disorder, complementation group 7
-local_clinvar_vcf_path = export_clinvar_vcf(only_pathogenic=True, include_phenotypes=True)
-#local_clinvar_vcf_path = "clinvar_2025_11_03.vcf.bgz"
+#local_clinvar_vcf_path = export_clinvar_vcf(only_pathogenic=True, include_phenotypes=True)
+local_clinvar_vcf_path = "clinvar_2025_11_03.vcf.bgz"
 
 def run(cmd):
     print(cmd)

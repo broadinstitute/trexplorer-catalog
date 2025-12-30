@@ -8,7 +8,7 @@ import sys
 sys.path.append('../')
 from compare_loci_with_catalog import OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2
 
-from str_analysis.utils.find_motif_utils import adjust_motif_and_boundaries_to_maximize_purity
+from str_analysis.utils.find_motif_utils import adjust_motif_to_maximize_purity_in_interval
 
 os.chdir(os.path.dirname(__file__))
 
@@ -26,23 +26,22 @@ pyfaidx_reference_fasta_obj = pyfaidx.Fasta(os.path.expanduser("~/hg38.fa"), one
 
 print(f"Adjusting boundaries and motifs for {len(df):,d} loci...")
 def adjust_locus(row):
-    adjusted_start, adjusted_end, adjusted_motif, was_adjusted, purity = adjust_motif_and_boundaries_to_maximize_purity(
+    adjusted_motif, purity = adjust_motif_to_maximize_purity_in_interval(
         pyfaidx_reference_fasta_obj, f"chr{str(row.chrom).replace('chr', '')}", row.start_0based, row.end_1based, row.motif
     )
+    was_adjusted = adjusted_motif != row.motif
     return pd.Series({
-        'adjusted_start_0based': adjusted_start,
-        'adjusted_end_1based': adjusted_end,
         'adjusted_motif': adjusted_motif,
         'was_adjusted': was_adjusted,
         'purity': purity
     })
 
-df[['adjusted_start_0based', 'adjusted_end_1based', 'adjusted_motif', 'was_adjusted', 'purity']] = df.apply(adjust_locus, axis=1)
+df[['adjusted_motif', 'was_adjusted', 'purity']] = df.apply(adjust_locus, axis=1)
 
 print(f"Adjusted {df['was_adjusted'].sum():,d} out of {len(df):,d} loci")
 
 # Calculate reference repeat count and filter
-df['adjusted_repeat_count'] = (df['adjusted_end_1based'] - df['adjusted_start_0based']) / df['adjusted_motif'].str.len()
+df['adjusted_repeat_count'] = (df['end_1based'] - df['start_0based']) / df['adjusted_motif'].str.len()
 
 before_filter = len(df)
 df = df[df['adjusted_repeat_count'] >= 2].copy()
@@ -57,8 +56,6 @@ df = df[df['purity'] > 0.2].copy()
 print(f"After filtering for purity > 0.2: kept {len(df):,d} out of {before_filter:,d} loci")
 
 # Update the main columns with adjusted values
-df['start_0based'] = df['adjusted_start_0based']
-df['end_1based'] = df['adjusted_end_1based']
 df['motif'] = df['adjusted_motif']
 
 output_filename_prefix = table_path.replace(".overlap_with_TRExplorer_v2.tsv.gz", "") 

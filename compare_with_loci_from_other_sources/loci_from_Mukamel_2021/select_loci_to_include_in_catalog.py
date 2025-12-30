@@ -6,7 +6,7 @@ import pyfaidx
 import sys
 sys.path.append('../')
 from compare_loci_with_catalog import OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66
-from str_analysis.utils.find_motif_utils import adjust_motif_and_boundaries_to_maximize_purity
+from str_analysis.utils.find_motif_utils import adjust_motif_to_maximize_purity_in_interval
 
 os.chdir(os.path.dirname(__file__))
 
@@ -33,24 +33,21 @@ for table_path in table_paths:
 
     print(f"Adjusting boundaries and motifs for {len(df):,d} loci...")
     def adjust_locus(row):
-        adjusted_start, adjusted_end, adjusted_motif, was_adjusted, purity = adjust_motif_and_boundaries_to_maximize_purity(
+        adjusted_motif, purity = adjust_motif_to_maximize_purity_in_interval(
             pyfaidx_reference_fasta_obj, str(row.chrom), row.start_0based, row.end_1based, row.motif
         )
+        was_adjusted = adjusted_motif != row.motif
         return pd.Series({
-            'adjusted_start_0based': adjusted_start,
-            'adjusted_end_1based': adjusted_end,
             'adjusted_motif': adjusted_motif,
             'was_adjusted': was_adjusted,
             'purity': purity
         })
 
-    df[['adjusted_start_0based', 'adjusted_end_1based', 'adjusted_motif', 'was_adjusted', 'purity']] = df.apply(adjust_locus, axis=1)
+    df[['adjusted_motif', 'was_adjusted', 'purity']] = df.apply(adjust_locus, axis=1)
 
     print(f"Adjusted {df['was_adjusted'].sum():,d} out of {len(df):,d} loci")
 
     # Update the main columns with adjusted values
-    df['start_0based'] = df['adjusted_start_0based']
-    df['end_1based'] = df['adjusted_end_1based']
     df['motif'] = df['adjusted_motif']
 
     output_filename_prefix = table_path.replace(".overlap_with_TRExplorer_v2.tsv.gz", "") 

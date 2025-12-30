@@ -2,8 +2,16 @@
 import os
 import pandas as pd
 import pyfaidx
+import sys
+sys.path.append('../')
+from tqdm import tqdm
 
-from str_analysis.utils.find_motif_utils import adjust_motif_and_boundaries_to_maximize_purity
+tqdm.pandas()
+
+
+from compare_loci_with_catalog import OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2
+
+from str_analysis.utils.find_motif_utils import adjust_motif_to_maximize_purity_in_interval
 
 
 os.chdir(os.path.dirname(__file__))
@@ -18,31 +26,40 @@ pyfaidx_reference_fasta_obj = pyfaidx.Fasta(os.path.expanduser("~/hg38.fa"), one
 print(f"Processing {table_path}")
 df = pd.read_table(table_path)
 
-from pprint import pprint
-pprint(df["overlap"].value_counts())
-df = df[df["overlap"].isin({
-    "Jaccard similarity ≤ 0.2",
-    "absent from TRExplorer_v2 catalog",
-})].copy()
+df = df[df["overlap_score"] <= OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2].copy()
+df = df[(df["end_1based"] - df["start_0based"]) < 3_000]
 
 print(f"Adjusting boundaries and motifs for {len(df):,d} loci...")
 def adjust_locus(row):
-    adjusted_start, adjusted_end, adjusted_motif, was_adjusted, purity = adjust_motif_and_boundaries_to_maximize_purity(
-        pyfaidx_reference_fasta_obj, str(row.chrom), row.HipSTR_start_0based, row.HipSTR_end_1based, row.HipSTR_motif
-    )
-    return pd.Series({
-        'adjusted_start_0based': adjusted_start,
-        'adjusted_end_1based': adjusted_end,
-        'adjusted_motif': adjusted_motif,
-        'was_adjusted': was_adjusted,
-        'purity': purity
-    })
+    try:
+        adjusted_motif, purity = adjust_motif_to_maximize_purity_in_interval(
+            pyfaidx_reference_fasta_obj,
+            f"chr{str(row.chrom).replace('chr', '')}",
+            row.HipSTR_start_0based,
+            row.HipSTR_end_1based,
+            row.HipSTR_motif,
+        )
+        was_adjusted = adjusted_motif != row.HipSTR_motif
+        return pd.Series({
+            'adjusted_motif': adjusted_motif,
+            'was_adjusted': was_adjusted,
+            'purity': purity
+        })
 
-df[['adjusted_start_0based', 'adjusted_end_1based', 'adjusted_motif', 'was_adjusted', 'purity']] = df.apply(adjust_locus, axis=1)
+    except ValueError as e:
+        print(f"WARNING: {e}")
+        return pd.Series({
+            'adjusted_motif': row.HipSTR_motif,
+            'was_adjusted': False,
+            'purity': float('nan'),
+        })
+
+df[['adjusted_motif', 'was_adjusted', 'purity']] = df.progress_apply(
+    adjust_locus, axis=1)
 
 print(f"Adjusted {df['was_adjusted'].sum():,d} out of {len(df):,d} loci")
 
-df[["chrom", "adjusted_start_0based", "adjusted_end_1based", "adjusted_motif"]].to_csv(
+df[["chrom", "HipSTR_start_0based", "HipSTR_end_1based", "adjusted_motif"]].to_csv(
     output_path, index=False, header=False, sep="\t")
 
 os.system(f"bgzip -f {output_path}")
