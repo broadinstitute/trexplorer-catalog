@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import time
+from types import SimpleNamespace as NS
 
 from str_analysis.utils.file_utils import file_exists, tee_stdout_and_stderr_to_log_file
 
@@ -128,22 +129,29 @@ print(f"Started at: {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 # same motif), then the definition in the catalog that's earlier in the list will take precedence over definitions in
 # subsequent catalogs.
 source_catalogs_in_order = [
-    ("TRExplorerV1:KnownDiseaseAssociatedLoci", "https://raw.githubusercontent.com/broadinstitute/str-analysis/69dd90ecbc1dcbb23d5ca84ab4022850a283114f/str_analysis/variant_catalogs/variant_catalog_without_offtargets.GRCh38.json"),
-    ("TRExplorerV1:Illumina174kPolymorphicTRs", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/illumina_variant_catalog.sorted.bed.gz"),
-    ("TRExplorerV1:PerfectRepeatsInReference", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
-    ("TRExplorerV1:PolymorphicTRsInT2TAssemblies", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
-    ("TRExplorerV2:KnownDiseaseAssociatedLoci", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
-    ("TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", "https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_29/combined.321_catalogs.tandem_repeats.bed.gz"),
-    #("TRExplorerV2:FunctionalVNTRs", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/functional_VNTRs.loci_to_include_in_catalog.bed.gz"),
-    #("TRExplorerV2:AdottoTRsPolymorphicOrConstrainedInDanzi2025", "https://storage.googleapis.com/v2.0/Danzi_2025.adotto.loci_to_include_in_catalog.bed.gz"),
-    #("TRExplorerV2:ClinVarIndelsThatAreTRs2025", "https://storage.googleapis.com/tandem-repeat-catalog/v2.0/clinvar_2025_11_03.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV1:KnownDiseaseAssociatedLoci",      merge=1, url="https://raw.githubusercontent.com/broadinstitute/str-analysis/69dd90ecbc1dcbb23d5ca84ab4022850a283114f/str_analysis/variant_catalogs/variant_catalog_without_offtargets.GRCh38.json"),
+    NS(name="TRExplorerV1:Illumina174kPolymorphicTRs",      merge=1, url="https://storage.googleapis.com/str-truth-set/hg38/ref/other/illumina_variant_catalog.sorted.bed.gz"),
+    NS(name="TRExplorerV1:PerfectRepeatsInReference",       merge=1, url="https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
+    NS(name="TRExplorerV1:PolymorphicTRsInT2TAssemblies",   merge=1, url="https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
+
+    NS(name="TRExplorerV2:KnownDiseaseAssociatedLoci",      merge=2, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", merge=2, url="https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_29/combined.321_catalogs.tandem_repeats.bed.gz"),
+    NS(name="TRExplorerV2:KnownFunctionalVNTRs",            merge=2, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_functional_VNTRs.loci_to_include_in_catalog.bed.gz"),
+
+    NS(name="TRExplorerV2:AdottoTRsFromDanzi2025",          merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Danzi_2025.adotto.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:FromHipSTRCatalog",               merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/hg38.hipstr_reference.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:ClinvarIndelsThatAreTRs2025",     merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/clinvar_2025_11_03.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:Tanudisastro2025",                merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Tanudisastro_2025.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:Mukamel2021",                     merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Mukamel_2021.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:Annear2021",                      merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Annear_2021.loci_to_include_in_catalog.bed.gz"),
+
 ]
 
 source_catalog_paths = {}
-for catalog_name, url in source_catalogs_in_order:
-    if not os.path.isfile(os.path.basename(url)):
-        run(f"wget -O {os.path.basename(url)}.tmp -qnc {url} && mv {os.path.basename(url)}.tmp {os.path.basename(url)}")
-    source_catalog_paths[catalog_name] = os.path.abspath(os.path.basename(url))
+for source_catalog in source_catalogs_in_order:
+    if not os.path.isfile(os.path.basename(source_catalog.url)):
+        run(f"wget -O {os.path.basename(source_catalog.url)}.tmp -qnc {source_catalog.url} && mv {os.path.basename(source_catalog.url)}.tmp {os.path.basename(source_catalog.url)}")
+    source_catalog_paths[source_catalog.name] = os.path.abspath(os.path.basename(source_catalog.url))
 
 # preprocess catalog of known disease-associated loci: split compound definitions
 run(f"python3 -u -m str_analysis.split_adjacent_loci_in_expansion_hunter_catalog {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=0)
@@ -155,21 +163,21 @@ run(f"gzip -f {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}"
 source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci'] += ".gz"
 
 if not args.dry_run:
-        # compute stats for primary disease-associated loci
-        with gzip.open(source_catalog_paths["TRExplorerV1:KnownDiseaseAssociatedLoci"]) as f:
-            known_disease_associated_loci = json.load(f)
+    # compute stats for primary disease-associated loci
+    with gzip.open(source_catalog_paths["TRExplorerV1:KnownDiseaseAssociatedLoci"]) as f:
+        known_disease_associated_loci = json.load(f)
 
-        primary_disease_associated_loci = [
-            x for x in known_disease_associated_loci if x["Diseases"] and (
-                x["LocusId"].startswith("HOXA") or x["LocusId"].startswith("ARX") or "_" not in x["LocusId"]
-            )
-        ]
+    primary_disease_associated_loci = [
+        x for x in known_disease_associated_loci if x["Diseases"] and (
+            x["LocusId"].startswith("HOXA") or x["LocusId"].startswith("ARX") or "_" not in x["LocusId"]
+        )
+    ]
 
 
-        # check the number of primary disease-associated loci, not counting adjacent repeats and historic candidate loci that
-        # are not currently considered monogenic
-        if len(primary_disease_associated_loci) != 63:
-            raise ValueError(f"Expected 63 primary disease-associated loci, found {len(primary_disease_associated_loci)}")
+    # check the number of primary disease-associated loci, not counting adjacent repeats and historic candidate loci that
+    # are not currently considered monogenic
+    if len(primary_disease_associated_loci) != 63:
+        raise ValueError(f"Expected 63 primary disease-associated loci, found {len(primary_disease_associated_loci)}")
 
 primary_disease_associated_loci_path = source_catalog_paths["TRExplorerV1:KnownDiseaseAssociatedLoci"].replace(
     ".json.gz", ".primary_disease_associated_loci.json.gz")
@@ -212,8 +220,9 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
     output_prefix = os.path.abspath(f"{args.output_prefix}.{motif_size_label}")
 
     filtered_source_catalog_paths = {}
-    for catalog_name, _ in source_catalogs_in_order:
-        catalog_path = source_catalog_paths[catalog_name]
+    for source_catalog in source_catalogs_in_order:
+        catalog_path = source_catalog_paths[source_catalog.name]
+
         if catalog_path.endswith(".json.gz"):
             filtered_catalog_path = catalog_path.replace(".json.gz", ".filtered.json.gz")
         elif catalog_path.endswith(".bed.gz"):
@@ -222,10 +231,10 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
             raise ValueError(f"Unexpected file extension for {catalog_path}")
 
         filtered_catalog_path = os.path.abspath(os.path.basename(filtered_catalog_path))
-        filtered_source_catalog_paths[catalog_name] = filtered_catalog_path
+        filtered_source_catalog_paths[source_catalog.name] = filtered_catalog_path
 
         extra_args = ""
-        if catalog_name == "TRExplorerV2:PolymorphicTRsInT2TAssembliesV2":
+        if source_catalog.name == "TRExplorerV2:PolymorphicTRsInT2TAssembliesV2":
             extra_args = f"--min-repeats-in-reference 1 "
 
         run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog \
@@ -255,8 +264,8 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
     # added loci, causing loss of those loci from new versions of the catalog. Variation cluster analysis is a better
     # way to merge adjacent loci where needed.
     source_catalog_paths_for_merge_command1 = " ".join([
-        f"{catalog_name}:{filtered_source_catalog_paths[catalog_name]}" for catalog_name, _ in source_catalogs_in_order
-        if not catalog_name.startswith("TRExplorerV2:")
+        f"{source_catalog.name}:{filtered_source_catalog_paths[source_catalog.name]}"
+        for source_catalog in source_catalogs_in_order if source_catalog.merge == 1
     ])
 
     run(f"""python3 -u -m str_analysis.merge_loci --verbose \
@@ -282,10 +291,42 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         {output_prefix}.merged1.json.gz""", step_number=5)
 
     source_catalog_paths_for_merge_command2 = " ".join([
-       f"merged:{output_prefix}.merged1.annotated.json.gz",
+        f"merged:{output_prefix}.merged1.annotated.json.gz",
     ] + [
-       f"{catalog_name}:{filtered_source_catalog_paths[catalog_name]}" for catalog_name, _ in source_catalogs_in_order
-       if catalog_name.startswith("TRExplorerV2:")
+        f"{source_catalog.name}:{filtered_source_catalog_paths[source_catalog.name]}"
+        for source_catalog in source_catalogs_in_order if source_catalog.merge == 2
+    ])
+
+    run(f"""python3 -u -m str_analysis.merge_loci --verbose \
+            --add-found-in-fields \
+            --output-format JSON \
+            --overlapping-loci-action keep-first \
+            --write-merge-stats-tsv \
+            --write-outer-join-table \
+            --write-bed-files-with-unique-loci \
+            --overlap-fraction 0.66 \
+            --min-jaccard-similarity 0.66 \
+            --outer-join-overlap-table-min-sources 1 \
+            --output-prefix {output_prefix}.merged2 \
+            {source_catalog_paths_for_merge_command2}""", step_number=6)
+
+    run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
+            --reference-fasta {args.hg38_reference_fasta} \
+            --gene-models-source gencode \
+            --gene-models-source refseq \
+            --gene-models-source mane \
+            --known-disease-associated-loci {primary_disease_associated_loci_path} \
+            --min-motif-size {min_motif_size} \
+            --max-motif-size {max_motif_size} \
+            --min-interval-size-bp 1 \
+            --output-path {output_prefix}.merged2.annotated.json.gz \
+            {output_prefix}.merged2.json.gz""", step_number=7)
+
+    source_catalog_paths_for_merge_command3 = " ".join([
+       f"merged:{output_prefix}.merged2.annotated.json.gz",
+    ] + [
+       f"{source_catalog.name}:{filtered_source_catalog_paths[source_catalog.name]}"
+        for source_catalog in source_catalogs_in_order if source_catalog.merge == 3
     ])
 
     run(f"""python3 -u -m str_analysis.merge_loci --verbose \
@@ -296,10 +337,10 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --write-outer-join-table \
         --write-bed-files-with-unique-loci \
         --overlap-fraction 0.66 \
-        --min-jaccard-similarity 0.66 \
+        --min-jaccard-similarity 0.2 \
         --outer-join-overlap-table-min-sources 1 \
-        --output-prefix {output_prefix}.merged2 \
-        {source_catalog_paths_for_merge_command2}""", step_number=6)
+        --output-prefix {output_prefix}.merged3 \
+        {source_catalog_paths_for_merge_command3}""", step_number=6)
 
     annotated_catalog_path = f"{output_prefix}.EH.with_annotations.json.gz"
     run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
@@ -312,7 +353,7 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --max-motif-size {max_motif_size} \
         --min-interval-size-bp 1 \
         --output-path {annotated_catalog_path} \
-        {output_prefix}.merged2.json.gz""", step_number=7)
+        {output_prefix}.merged3.json.gz""", step_number=7)
 
     # create a version of the ExpansionHunter catalog without extra annotations
     run(f"""python3 << EOF

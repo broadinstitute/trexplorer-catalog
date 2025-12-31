@@ -1,4 +1,4 @@
-#TRExplorer_v2:../../results__2025-12-28/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz
+#TRExplorer_v2:../../results__2025-12-30/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz
 
 for catalog in TRExplorer_v1:../../results__2024-10-01/1_to_1000bp_motifs/repeat_catalog_v1.hg38.1_to_1000bp_motifs.bed.gz; do
     echo ================================================================================================

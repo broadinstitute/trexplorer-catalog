@@ -5,7 +5,7 @@
 
 clinvar_bed=clinvar_2025_11_03.merged.tandem_repeats.detailed.bed.gz
 
-for catalog in TRExplorer_v2:../../results__2025-12-28/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz ; do
+for catalog in TRExplorer_v2:../../results__2025-12-30/1_to_1000bp_motifs/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz ; do
     echo ================================================================================================
     echo Comparing clinvar to ${catalog}
     echo ================================================================================================

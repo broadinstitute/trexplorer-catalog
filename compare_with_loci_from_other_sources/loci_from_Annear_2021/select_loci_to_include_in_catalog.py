@@ -1,31 +1,33 @@
 #%%
-
 import os
 import pandas as pd
 import sys
-
-sys.path.append("../")
+sys.path.append('../')
 from compare_loci_utils import select_loci
-#from compare_loci_with_catalog import OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2
+#from compare_loci_with_catalog import OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66
 
 os.chdir(os.path.dirname(__file__))
 
-#table_path = "Danzi_2025_OE_or_LPSStdev_outliers.narrow_adotto_boundaries.only_matching_motif_lengths.overlap_with_TRExplorer_v2.tsv.gz"
-table_path = "Danzi_2025_OE_or_LPSStdev_outliers.narrow_adotto_boundaries.only_matching_motif_lengths.bed.gz"
+table_path = "Annear_2021_loci.bed.gz"
 
+print("-" * 100)
 print(f"Processing {table_path}")
 df = pd.read_table(table_path, names=["chrom", "start_0based", "end_1based", "motif"])
 total = len(df)
 
+# Filter to loci that don't match well in catalog (overlap_score < 5, equivalent to <= 4)
 df = select_loci(df,
-    #max_overlap_score=OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2,
+    #max_overlap_score=OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66 - 1,
     min_repeats_in_reference=2,
     min_adjusted_motif_purity=0.2,
     adjust_motifs_to_maximize_purity=True,
     drop_duplicates=True)
 
+print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:")
+df["motif_size"] = df["motif"].str.len()
+print(df["motif_size"].value_counts())
 
-output_filename_prefix = "Danzi_2025.adotto" 
+output_filename_prefix = "Annear_2021"
 output_tsv_path = f"{output_filename_prefix}.loci_to_include_in_catalog.tsv.gz"
 output_bed_path = f"{output_filename_prefix}.loci_to_include_in_catalog.bed"
 
@@ -33,11 +35,11 @@ df.to_csv(output_tsv_path, sep="\t", index=False)
 print(f"Wrote {len(df):,d} out of {total:,d} loci to {output_tsv_path}")
 
 df_bed = df[["chrom", "start_0based", "end_1based", "adjusted_motif"]]
+df_bed.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
 df_bed.to_csv(output_bed_path, sep="\t", index=False, header=False)
 os.system(f"bgzip -f {output_bed_path}")
 os.system(f"tabix -f {output_bed_path}.gz")
 print(f"Wrote {len(df):,d} out of {total:,d} loci to {output_bed_path}.gz")
-
 
 
 
@@ -74,7 +76,6 @@ Columns:
     TRExplorer_v2_reference_region,
     TRExplorer_v2_reference_repeat_count,
     TRExplorer_v2_reference_region_size
-
 """
 
 #%%

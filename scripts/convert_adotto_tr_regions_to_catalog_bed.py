@@ -50,7 +50,6 @@ def convert_catalog_version(catalog_version):
                 fields[0],
                 d["start"],
                 d["end"] + 1,
-                #"MOTIF="+d["motif"]+";PURITY="+str(d["purity"]),
                 d["motif"],
                 ".",
             ))

@@ -1,56 +1,55 @@
 #%%
 import os
 import pandas as pd
+import sys
+
+sys.path.append("../")
+from compare_loci_utils import select_loci
+#from compare_loci_with_catalog import OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2
 
 os.chdir(os.path.dirname(__file__))
 
-table_paths = [
-    "TableS1v0.1.overlap_with_TRExplorer_v2.tsv.gz",
-    #"TableS3v0.1.overlap_with_TRExplorer_v2.tsv.gz",
-    #"fm_etrs_coordinates.overlap_with_TRExplorer_v2.tsv.gz",
-]
+#"TableS3v0.1.overlap_with_TRExplorer_v2.tsv.gz"
+#"fm_etrs_coordinates.overlap_with_TRExplorer_v2.tsv.gz"
+# "TableS1v0.1.overlap_with_TRExplorer_v2.tsv.gz"
 
-for table_path in table_paths:
-    print("-" * 100)
-    print(f"Processing {table_path}")
-    df = pd.read_table(table_path)
-    total = len(df)
-    df["motif_size"] = df["motif"].str.len()
+table_path = "TableS1v0.1.bed.gz"
 
-    df = df.drop_duplicates(subset=["chrom", "start_0based", "end_1based", "motif"])
-    if len(df) != total:
-        print(f"Dropped {total - len(df):,d} duplicate loci")
+print("-" * 100)
+print(f"Processing {table_path}")
+df = pd.read_table(table_path, names=["chrom", "start_0based", "end_1based", "motif"])
+total = len(df)
 
-    # filter to loci that don't match anything in the catalog and have motif size > 2
-    df = df[df["match_found?"].str.startswith("no")].copy()
-    df = df[df["motif_size"] > 2].copy()
+df = select_loci(df,
+    #max_overlap_score=OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2,
+    min_repeats_in_reference=2,
+    min_adjusted_motif_purity=0.2,
+    adjust_motifs_to_maximize_purity=True,
+    drop_duplicates=True)
+
+output_filename_prefix = "Tanudisastro_2025"
+output_tsv_path = f"{output_filename_prefix}.loci_to_include_in_catalog.tsv.gz"
+output_bed_path = f"{output_filename_prefix}.loci_to_include_in_catalog.bed"
+
+df.to_csv(output_tsv_path, sep="\t", index=False)
+print(f"Wrote {len(df):,d} out of {total:,d} loci to {output_tsv_path}")
+
+df_bed = df[["chrom", "start_0based", "end_1based", "adjusted_motif"]].copy()
+df_bed.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
+df_bed.to_csv(output_bed_path, sep="\t", index=False, header=False)
+os.system(f"bgzip -f {output_bed_path}")
+os.system(f"tabix -f {output_bed_path}.gz")
+print(f"Wrote {len(df):,d} out of {total:,d} loci to {output_bed_path}.gz")
 
 
-    assert set(df.overlap_score) == {0, 1}, f"Expected overlap_score to be 0 or 1. Found scores: {set(df.overlap_score)}"
-    print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:") 
-
-    # if motif size > 7, then set motif size to 7
-    df.loc[df["motif_size"] > 7, "motif_size"] = 7
-    print(df["motif_size"].value_counts())
-
-    output_filename_prefix = table_path.replace(".overlap_with_TRExplorer_v2.tsv.gz", "") 
-    output_tsv_path = f"{output_filename_prefix}.loci_to_include_in_catalog.tsv.gz"
-    output_bed_path = f"{output_filename_prefix}.loci_to_include_in_catalog.bed"
-    
-    df.to_csv(output_tsv_path, sep="\t", index=False)
-    print(f"Wrote {len(df):,d} out of {total:,d} loci to {output_tsv_path}")
-
-    df_bed = df[["chrom", "start_0based", "end_1based", "motif"]].copy()
-    df_bed.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
-    df_bed.to_csv(output_bed_path, sep="\t", index=False, header=False)
-    os.system(f"bgzip -f {output_bed_path}")
-    os.system(f"tabix -f {output_bed_path}.gz")
-    print(f"Wrote {len(df):,d} out of {total:,d} loci to {output_bed_path}.gz")
-
+# print some stats
+print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:")
+df["motif_size"] = df["motif"].str.len()
+df.loc[df["motif_size"] >= 7, "motif_size"] = "7+"
+print(df["motif_size"].value_counts())
 
 
 """
-
 set(zip(df.overlap_score, df.overlap))
 
 {(0, 'absent from TRExplorer_v2 catalog'),   # match found? is no

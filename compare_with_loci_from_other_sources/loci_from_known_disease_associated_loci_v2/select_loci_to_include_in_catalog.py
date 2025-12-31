@@ -1,5 +1,4 @@
 #%%
-import collections
 import os
 import pandas as pd
 
@@ -17,6 +16,7 @@ total = len(df)
 
 df["motif_size"] = df["motif"].str.len()
 
+df = df[~df["motif"].str.upper().str.contains("N")].copy()
 df = df[df["overlap_score"] < OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_ABOVE_0_66].copy()
 
 print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:") 
@@ -26,7 +26,7 @@ output_filename_prefix = table_path.replace(".overlap_with_TRExplorer_v1.tsv.gz"
 output_tsv_path = f"{output_filename_prefix}.loci_to_include_in_catalog.tsv.gz"
 output_bed_path = f"{output_filename_prefix}.loci_to_include_in_catalog.bed"
 
-df_bed = df[["chrom", "start_0based", "end_1based", "motif"]]
+df_bed = df[["chrom", "start_0based", "end_1based", "motif"]].copy()
 df_bed.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
 df_bed.to_csv(output_bed_path, sep="\t", index=False, header=False)
 os.system(f"bgzip -f {output_bed_path}")
