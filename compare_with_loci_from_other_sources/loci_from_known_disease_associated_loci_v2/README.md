@@ -1,0 +1,1 @@
+Add standard definitions of known disease-associated loci (new or otherwise) that are not yet present in the catalog. 

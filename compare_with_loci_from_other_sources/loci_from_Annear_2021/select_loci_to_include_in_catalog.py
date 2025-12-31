@@ -34,7 +34,7 @@ output_bed_path = f"{output_filename_prefix}.loci_to_include_in_catalog.bed"
 df.to_csv(output_tsv_path, sep="\t", index=False)
 print(f"Wrote {len(df):,d} out of {total:,d} loci to {output_tsv_path}")
 
-df_bed = df[["chrom", "start_0based", "end_1based", "adjusted_motif"]]
+df_bed = df[["chrom", "start_0based", "end_1based", "adjusted_motif"]].copy()
 df_bed.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
 df_bed.to_csv(output_bed_path, sep="\t", index=False, header=False)
 os.system(f"bgzip -f {output_bed_path}")

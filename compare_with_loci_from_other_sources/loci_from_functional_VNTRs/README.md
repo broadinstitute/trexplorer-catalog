@@ -1,0 +1,1 @@
+Curated list of ~50 VNTRs with suspected or known biological functions.

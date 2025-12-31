@@ -68,7 +68,7 @@ print(f"Wrote {len(df):,d} intervals to {output_bed_path}.gz")
 
 print(f"Added motifs to {sum(df['motif'].notna()):,d} out of {len(df):,d} ({sum(df['motif'].notna()) / len(df):.1%}) outlier intervals from {input_supp_table3_path}")
 if sum(df['motif'].isna()) > 0:
-    raise(f"ERROR: {df2_path} did not contain a motif for {len(sum(df['motif'].isna())):,d} TRIDs")
+    raise ValueError(f"ERROR: {df2_path} did not contain a motif for {sum(df['motif'].isna()):,d} TRIDs")
 
 # Load Adotto narrow locus definitions
 adotto_catalog_interval_trees = collections.defaultdict(intervaltree.IntervalTree)

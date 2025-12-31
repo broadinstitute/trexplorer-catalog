@@ -138,13 +138,17 @@ source_catalogs_in_order = [
     NS(name="TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", merge=2, url="https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_29/combined.321_catalogs.tandem_repeats.bed.gz"),
     NS(name="TRExplorerV2:KnownFunctionalVNTRs",            merge=2, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_functional_VNTRs.loci_to_include_in_catalog.bed.gz"),
 
+    NS(name="TRExplorerV2:FromHipSTRCatalog"        ,       merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/hg38.hipstr_reference.loci_to_include_in_catalog.bed.gz"),
     NS(name="TRExplorerV2:AdottoTRsFromDanzi2025",          merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Danzi_2025.adotto.loci_to_include_in_catalog.bed.gz"),
-    NS(name="TRExplorerV2:FromHipSTRCatalog",               merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/hg38.hipstr_reference.loci_to_include_in_catalog.bed.gz"),
     NS(name="TRExplorerV2:ClinvarIndelsThatAreTRs2025",     merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/clinvar_2025_11_03.loci_to_include_in_catalog.bed.gz"),
     NS(name="TRExplorerV2:Tanudisastro2025",                merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Tanudisastro_2025.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:Manigbas2024",                    merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Manigbas_2024_phenotype_associated_TRs.bed.gz"),
+    NS(name="TRExplorerV2:Sulovari2021",                    merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Sulovari_2019_human_specific_STRs.bed.gz"),
+    NS(name="TRExplorerV2:Garg2021",                        merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Garg_2021_eVNTRs_mVNTRs.bed.gz"),
     NS(name="TRExplorerV2:Mukamel2021",                     merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Mukamel_2021.loci_to_include_in_catalog.bed.gz"),
     NS(name="TRExplorerV2:Annear2021",                      merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Annear_2021.loci_to_include_in_catalog.bed.gz"),
-
+    NS(name="TRExplorerV2:Gymrek2016",                      merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Gymrek_2016_eSTRs.tandem_repeats.bed.gz"),
+    NS(name="TRExplorerV2:Hause2016",                       merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Hause_2016_cancer_MSI_loci.bed.gz"),
 ]
 
 source_catalog_paths = {}
