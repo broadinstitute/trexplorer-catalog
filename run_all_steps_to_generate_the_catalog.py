@@ -134,7 +134,7 @@ source_catalogs_in_order = [
     NS(name="TRExplorerV1:PerfectRepeatsInReference",       merge="v1", url="https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
     NS(name="TRExplorerV1:PolymorphicTRsInT2TAssemblies",   merge="v1", url="https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
 
-    NS(name="TRExplorerV2:KnownDiseaseAssociatedLoci",      merge="v2a", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:KnownDiseaseAssociatedLociV2",    merge="v2a", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
     NS(name="TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", merge="v2a", url="https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_29/combined.321_catalogs.tandem_repeats.bed.gz"),
     NS(name="TRExplorerV2:KnownFunctionalVNTRs",            merge="v2a", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_functional_VNTRs.loci_to_include_in_catalog.bed.gz"),
 
