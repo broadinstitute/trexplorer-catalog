@@ -41,7 +41,10 @@ df_bed = df[["chrom", "start_0based", "end_1based", "motif"]].copy()
 df_bed.to_csv(output_bed_path, sep="\t", index=False, header=False)
 os.system(f"bgzip -f {output_bed_path}")
 os.system(f"tabix -f {output_bed_path}.gz")
-print(f"Wrote {len(df):,d} out of {total:,d} loci to {output_bed_path}.gz")
+
+print("=" * 50)
+print(f"Wrote {len(df):,d} loci to {output_bed_path}.gz")
+print("=" * 50)
 
 print(f"Selected {len(df):,d} out of {total:,d} loci with the following motif distribution:")
 df["motif_size"] = df["motif"].str.len()

@@ -30,7 +30,8 @@ for d in \
     ls run.sh
     grep gsutil run.sh
 
-    ./run.sh 2>&1 | tee run.sh.log 
+    ./run.sh 2>&1 | tee run.sh.log
+    
     set +x
     cd ..
 

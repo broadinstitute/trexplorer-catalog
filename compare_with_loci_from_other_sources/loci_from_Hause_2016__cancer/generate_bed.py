@@ -70,6 +70,7 @@ def main():
     converter = get_lifter('hg19', 'hg38', one_based=False)
 
     output_rows = []
+    filter_reason_counts = Counter()
     skipped_locus_parse = 0
     skipped_complex_motif = 0
     skipped_liftover = 0
@@ -115,7 +116,7 @@ def main():
         if end_hg38_1based < start_hg38_0based:
             start_hg38_0based, end_hg38_1based = end_hg38_0based, start_hg38_0based + 1
 
-        passes_filters, adjusted_motif = does_locus_pass_filters(
+        passes_filters, adjusted_motif, filter_reason = does_locus_pass_filters(
             chrom_hg38, start_hg38_0based, end_hg38_1based, motif,
             min_repeats_in_reference=2,
             min_adjusted_motif_purity=0.2,
@@ -126,6 +127,8 @@ def main():
                 print(f"Simplified {chrom_hg38}:{start_hg38_0based}-{end_hg38_1based} motif: {motif} => {adjusted_motif}")
 
             output_rows.append((chrom_hg38, start_hg38_0based, end_hg38_1based, adjusted_motif))
+        else:
+            filter_reason_counts[filter_reason] += 1
 
     print(f"\nProcessed {len(output_rows):,} loci successfully")
     total_skipped = skipped_locus_parse + skipped_complex_motif + skipped_liftover
@@ -136,6 +139,10 @@ def main():
         print(f"  - {skipped_complex_motif:,} due to complex/compound motifs")
     if skipped_liftover:
         print(f"  - {skipped_liftover:,} due to liftOver failures")
+    if filter_reason_counts:
+        print("Filter reasons:")
+        for reason, count in filter_reason_counts.most_common():
+            print(f"  {count:10,d}  {reason}")
 
     # Print motif size distribution
     motif_size_counts = Counter(len(row[3]) for row in output_rows)
@@ -169,10 +176,9 @@ def main():
     os.system(f"bgzip -f {output_file}")
     os.system(f"tabix -p bed {output_file}.gz")
 
-    print(f"\nDone! Created {output_file}.gz with {len(output_rows):,} loci")
-    print(f"First few entries:")
-    for row in output_rows[:5]:
-        print(f"  {row[0]}\t{row[1]}\t{row[2]}\t{row[3]}")
+    print("=" * 50)
+    print(f"Wrote {len(output_rows):,d} loci to {output_file}.gz")
+    print("=" * 50)
 
 if __name__ == '__main__':
     main()

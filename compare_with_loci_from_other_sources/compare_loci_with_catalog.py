@@ -19,6 +19,9 @@ import tqdm
 from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 from str_analysis.utils.find_repeat_unit import find_repeat_unit_without_allowing_interruptions
 from str_analysis.utils.find_motif_utils import find_highest_purity_motif_length_for_interval, compute_motif_length_purity_for_interval, compute_motif_purity_for_interval
+from str_analysis.utils.eh_catalog_utils import get_variant_catalog_iterator, parse_motifs_from_locus_structure
+from str_analysis.utils.misc_utils import parse_interval
+
 
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF = 4
 MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH = 3
@@ -288,7 +291,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_
         print()
         print(f"All loci in {new_catalog_name}:")
         for _, row in df[df[f"{new_catalog_name}_reference_region"].notna()].iterrows():
-            print(" "*8, "\t".join(map(str, [row[f"{new_catalog_name}_reference_region"], row["match_found?"]])))
+            print(" "*8, "%-50s" % row[f"{new_catalog_name}_reference_region"], row["match_found?"])
 
     if args.skip_plots:
         return
@@ -627,23 +630,19 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_
 def load_main_catalog_loci(args):
     print(f"Parsing {args.catalog_bed_path} to interval tree")
     main_catalog_loci = collections.defaultdict(intervaltree.IntervalTree)
-    fopen = gzip.open if args.catalog_bed_path.endswith("gz") else open
-    with fopen(args.catalog_bed_path, "rt") as f:
-        for counter, line in enumerate(tqdm.tqdm(f, unit=" records", unit_scale=True)):
-            if args.n is not None and counter >= args.n:
-                break
+    for counter, record in enumerate(get_variant_catalog_iterator(args.catalog_bed_path, show_progress_bar=True)):
+        if args.n is not None and counter >= args.n:
+            break
 
-            fields = line.strip().split("\t")
-            chrom = fields[0].replace("chr", "")
-            start = int(fields[1])
-            end = int(fields[2])
-            motif = fields[3].split(":")[0]
-            simplified_motif, _, _ = find_repeat_unit_without_allowing_interruptions(motif, allow_partial_repeats=False)
-            canonical_motif = compute_canonical_motif(simplified_motif)
-            main_catalog_loci[chrom].add(intervaltree.Interval(start, max(start+1, end), data={
-                "motif": motif,
-                "canonical_motif": canonical_motif,
-            }))
+        chrom, start_0based, end = parse_interval(record["ReferenceRegion"])
+        motifs = parse_motifs_from_locus_structure(record["LocusStructure"])
+        motif = motifs[0]
+        simplified_motif, _, _ = find_repeat_unit_without_allowing_interruptions(motif, allow_partial_repeats=False)
+        canonical_motif = compute_canonical_motif(simplified_motif)
+        main_catalog_loci[chrom].add(intervaltree.Interval(start_0based, max(start_0based+1, end), data={
+            "motif": motif,
+            "canonical_motif": canonical_motif,
+        }))
 
     return main_catalog_loci
 
@@ -801,38 +800,19 @@ def compare_loci(
     """Compare a new catalog to the main catalog and output a TSV file of the results"""
 
     # parse new catalog and compare to main_catalog loci
-    f = None
-
-    if isinstance(new_catalog, (list, tuple)):
-        fields_iterator = new_catalog
-    elif isinstance(new_catalog, str):
-        if os.path.isfile(new_catalog):
-            fopen = gzip.open if new_catalog.endswith("gz") else open
-            f = fopen(new_catalog, "rt")
-            fields_iterator = (line.strip().split("\t") for line in f)
-        else:
-            raise ValueError(f"File not found: {new_catalog}")
-    else:
-        raise ValueError(f"Invalid new_catalog arg type: {type(new_catalog)}: {new_catalog}")
 
     output_rows = []
     new_catalog_duplicate_detector = set()
     new_catalog_duplicate_counter = 0
     new_catalog_total_counter = 0
     main_catalog_loci_that_overlap_new_catalog = set()
-    for fields in tqdm.tqdm(fields_iterator, unit=" records", unit_scale=True):
+    for record in get_variant_catalog_iterator(new_catalog, show_progress_bar=True):
         new_catalog_total_counter += 1
-        chrom = fields[0].replace("chr", "")
-        start_0based = int(fields[1])
-        end_1based = int(fields[2])
-        if len(fields) < 4:
-            motif = None
-            simplified_motif = None
-            canonical_motif = None
-        else:
-            motif = fields[3].split(":")[0]
-            simplified_motif, _, _ = find_repeat_unit_without_allowing_interruptions(motif, allow_partial_repeats=False)
-            canonical_motif = compute_canonical_motif(simplified_motif)
+        chrom, start_0based, end_1based = parse_interval(record["ReferenceRegion"])
+        motifs = parse_motifs_from_locus_structure(record["LocusStructure"])
+        motif = motifs[0]
+        simplified_motif, _, _ = find_repeat_unit_without_allowing_interruptions(motif, allow_partial_repeats=False)
+        canonical_motif = compute_canonical_motif(simplified_motif)
 
         key = (chrom, start_0based, end_1based, canonical_motif)
         if key in new_catalog_duplicate_detector:
@@ -1003,9 +983,6 @@ def compare_loci(
                     f"{main_catalog_name}_purity_of_motif": main_catalog_motif_purity,
                     f"{main_catalog_name}_purity_of_motif_length": main_catalog_motif_length_purity,
                 })
-
-    if f is not None:
-        f.close()
 
     return pd.DataFrame(output_rows)
 

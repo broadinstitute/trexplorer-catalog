@@ -11,6 +11,7 @@ large tandem repeats on local DNA methylation and gene expression"
 AJHG. https://doi.org/10.1016/j.ajhg.2021.03.012
 """
 
+from collections import Counter
 import os
 import pandas as pd
 import re
@@ -121,8 +122,9 @@ print(f"  Added {mvntr_count} unique mVNTR loci not in eVNTRs (skipped {skipped_
 
 # Sort by genomic coordinates
 output_rows = []
+filter_reason_counts = Counter()
 for (chrom, start_0based, end_1based), motif in vntr_loci.items():
-    passes_filters, adjusted_motif = does_locus_pass_filters(
+    passes_filters, adjusted_motif, filter_reason = does_locus_pass_filters(
         chrom, start_0based, end_1based, motif,
         min_repeats_in_reference=2,
         min_adjusted_motif_purity=0.2,
@@ -133,8 +135,14 @@ for (chrom, start_0based, end_1based), motif in vntr_loci.items():
             print(f"Simplified {chrom}:{start_0based}-{end_1based} motif: {motif} => {adjusted_motif}")
 
         output_rows.append((chrom, start_0based, end_1based, adjusted_motif))
+    else:
+        filter_reason_counts[filter_reason] += 1
 
 print(f"Kept {len(output_rows):,d} out of {len(vntr_loci):,d} loci after applying filters")
+if filter_reason_counts:
+    print("Filter reasons:")
+    for reason, count in filter_reason_counts.most_common():
+        print(f"  {count:10,d}  {reason}")
 output_rows.sort(key=lambda x: (x[0].replace('chr', '').zfill(2), x[1], x[2]))
 
 # Write output BED file
@@ -147,4 +155,6 @@ with open(output_bed_path, "wt") as output_bed:
 os.system(f"bgzip -f {output_bed_path}")
 os.system(f"tabix -f {output_bed_path}.gz")
 
-print(f"\nWrote {len(output_rows)} unique VNTR loci to {output_bed_path}.gz")
+print("=" * 50)
+print(f"Wrote {len(output_rows):,d} loci to {output_bed_path}.gz")
+print("=" * 50)

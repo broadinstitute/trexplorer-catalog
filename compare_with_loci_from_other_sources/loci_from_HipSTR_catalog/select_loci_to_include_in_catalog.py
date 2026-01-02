@@ -32,7 +32,9 @@ df[["chrom", "start_0based", "end_1based", "adjusted_motif"]].to_csv(
 os.system(f"bgzip -f {output_path}")
 os.system(f"tabix -f {output_path}.gz")
 
-print(f"Wrote {len(df):,d} out of {total:,d} loci to {output_path}.gz")
+print("=" * 50)
+print(f"Wrote {len(df):,d} loci to {output_path}.gz")
+print("=" * 50)
 
 
 """

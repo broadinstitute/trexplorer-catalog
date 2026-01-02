@@ -58,5 +58,7 @@ with fopen(args.json_or_tsv_path, "rt") as f:
             break
                 
 print(f"Missing value counters and percentages in {args.json_or_tsv_path}:")
-for key, count in sorted(missing_value_counters.items(), key=lambda x: x[1], reverse=True):
-    print(f"{count:,d} out of {record_counter:,d} ({count / record_counter:5.1%}) records are missing {key}")
+for key, missing_count in sorted(missing_value_counters.items(), key=lambda x: x[1], reverse=True):
+    print(f"{missing_count:10,d} out of {record_counter:10,d} ({missing_count / record_counter:6.1%}) records don't have, and "
+          f"{record_counter - missing_count:10,d} out of {record_counter:10,d} ({(record_counter - missing_count) / record_counter:6.1%}) "
+          f"records do have {key}")

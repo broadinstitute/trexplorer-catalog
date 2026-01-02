@@ -129,26 +129,26 @@ print(f"Started at: {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 # same motif), then the definition in the catalog that's earlier in the list will take precedence over definitions in
 # subsequent catalogs.
 source_catalogs_in_order = [
-    NS(name="TRExplorerV1:KnownDiseaseAssociatedLoci",      merge=1, url="https://raw.githubusercontent.com/broadinstitute/str-analysis/69dd90ecbc1dcbb23d5ca84ab4022850a283114f/str_analysis/variant_catalogs/variant_catalog_without_offtargets.GRCh38.json"),
-    NS(name="TRExplorerV1:Illumina174kPolymorphicTRs",      merge=1, url="https://storage.googleapis.com/str-truth-set/hg38/ref/other/illumina_variant_catalog.sorted.bed.gz"),
-    NS(name="TRExplorerV1:PerfectRepeatsInReference",       merge=1, url="https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
-    NS(name="TRExplorerV1:PolymorphicTRsInT2TAssemblies",   merge=1, url="https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
+    NS(name="TRExplorerV1:KnownDiseaseAssociatedLoci",      merge="v1", url="https://raw.githubusercontent.com/broadinstitute/str-analysis/69dd90ecbc1dcbb23d5ca84ab4022850a283114f/str_analysis/variant_catalogs/variant_catalog_without_offtargets.GRCh38.json"),
+    NS(name="TRExplorerV1:Illumina174kPolymorphicTRs",      merge="v1", url="https://storage.googleapis.com/str-truth-set/hg38/ref/other/illumina_variant_catalog.sorted.bed.gz"),
+    NS(name="TRExplorerV1:PerfectRepeatsInReference",       merge="v1", url="https://storage.googleapis.com/str-truth-set/hg38/ref/other/colab-repeat-finder/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp/hg38_repeats.motifs_1_to_1000bp.repeats_3x_and_spans_9bp.bed.gz"),
+    NS(name="TRExplorerV1:PolymorphicTRsInT2TAssemblies",   merge="v1", url="https://storage.googleapis.com/str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/merged_expansion_hunter_catalog.78_samples.json.gz"),
 
-    NS(name="TRExplorerV2:KnownDiseaseAssociatedLoci",      merge=2, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
-    NS(name="TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", merge=2, url="https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_29/combined.321_catalogs.tandem_repeats.bed.gz"),
-    NS(name="TRExplorerV2:KnownFunctionalVNTRs",            merge=2, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_functional_VNTRs.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:KnownDiseaseAssociatedLoci",      merge="v2a", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_disease_associated_loci_v2.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:PolymorphicTRsInT2TAssembliesV2", merge="v2a", url="https://storage.googleapis.com/str-truth-set-v2/filter_vcf_v2__2025_12_29/combined.321_catalogs.tandem_repeats.bed.gz"),
+    NS(name="TRExplorerV2:KnownFunctionalVNTRs",            merge="v2a", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/known_functional_VNTRs.loci_to_include_in_catalog.bed.gz"),
 
-    NS(name="TRExplorerV2:FromHipSTRCatalog"        ,       merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/hg38.hipstr_reference.loci_to_include_in_catalog.bed.gz"),
-    NS(name="TRExplorerV2:AdottoTRsFromDanzi2025",          merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Danzi_2025.adotto.loci_to_include_in_catalog.bed.gz"),
-    NS(name="TRExplorerV2:ClinvarIndelsThatAreTRs2025",     merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/clinvar_2025_11_03.loci_to_include_in_catalog.bed.gz"),
-    NS(name="TRExplorerV2:Tanudisastro2025",                merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Tanudisastro_2025.loci_to_include_in_catalog.bed.gz"),
-    NS(name="TRExplorerV2:Manigbas2024",                    merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Manigbas_2024_phenotype_associated_TRs.bed.gz"),
-    NS(name="TRExplorerV2:Sulovari2021",                    merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Sulovari_2019_human_specific_STRs.bed.gz"),
-    NS(name="TRExplorerV2:Garg2021",                        merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Garg_2021_eVNTRs_mVNTRs.bed.gz"),
-    NS(name="TRExplorerV2:Mukamel2021",                     merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Mukamel_2021.loci_to_include_in_catalog.bed.gz"),
-    NS(name="TRExplorerV2:Annear2021",                      merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Annear_2021.loci_to_include_in_catalog.bed.gz"),
-    NS(name="TRExplorerV2:Gymrek2016",                      merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Gymrek_2016_eSTRs.tandem_repeats.bed.gz"),
-    NS(name="TRExplorerV2:Hause2016",                       merge=3, url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Hause_2016_cancer_MSI_loci.bed.gz"),
+    NS(name="TRExplorerV2:HipSTRCatalog"        ,           merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/hg38.hipstr_reference.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:AdottoTRsFromDanzi2025",          merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Danzi_2025.adotto.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:ClinvarIndelsThatAreTRs2025",     merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/clinvar_2025_11_03.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:Tanudisastro2025",                merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Tanudisastro_2025.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:Manigbas2024",                    merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Manigbas_2024_genotyped_TRs.bed.gz"),
+    NS(name="TRExplorerV2:Sulovari2021",                    merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Sulovari_2019_human_specific_STRs.bed.gz"),
+    NS(name="TRExplorerV2:Garg2021",                        merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Garg_2021_eVNTRs_mVNTRs.bed.gz"),
+    NS(name="TRExplorerV2:Mukamel2021",                     merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Mukamel_2021.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:Annear2021",                      merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Annear_2021.loci_to_include_in_catalog.bed.gz"),
+    NS(name="TRExplorerV2:Gymrek2016",                      merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Gymrek_2016_eSTRs.tandem_repeats.bed.gz"),
+    NS(name="TRExplorerV2:Hause2016",                       merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Hause_2016_cancer_MSI_loci.bed.gz"),
 ]
 
 source_catalog_paths = {}
@@ -158,11 +158,11 @@ for source_catalog in source_catalogs_in_order:
     source_catalog_paths[source_catalog.name] = os.path.abspath(os.path.basename(source_catalog.url))
 
 # preprocess catalog of known disease-associated loci: split compound definitions
-run(f"python3 -u -m str_analysis.split_adjacent_loci_in_expansion_hunter_catalog {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=0)
+run(f"python3 -u -m str_analysis.split_adjacent_loci_in_expansion_hunter_catalog {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=1)
 source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci'] = source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci'].replace(".json", ".split.json")
 # change motif definition for the RFC1 locus from AARRG => AAAAG since our catalog doesn't currently support IUPAC codes
-run(f"sed -i 's/AARRG/AAAAG/g' {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=0)
-run(f"gzip -f {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=0)
+run(f"sed -i 's/AARRG/AAAAG/g' {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=2)
+run(f"gzip -f {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=3)
 
 source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci'] += ".gz"
 
@@ -200,9 +200,9 @@ if not args.dry_run:
         --discard-loci-with-non-ACGT-bases-in-reference \
         --discard-loci-with-non-ACGTN-bases-in-motif \
         --output-path {primary_disease_associated_loci_path} \
-        {primary_disease_associated_loci_path}""", step_number=1)
+        {primary_disease_associated_loci_path}""", step_number=4)
 
-    run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {primary_disease_associated_loci_path}", step_number=2)
+    run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {primary_disease_associated_loci_path}", step_number=5)
 
 adjacent_repeats_source_bed = None
 for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
@@ -224,7 +224,7 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
     output_prefix = os.path.abspath(f"{args.output_prefix}.{motif_size_label}")
 
     filtered_source_catalog_paths = {}
-    for source_catalog in source_catalogs_in_order:
+    for i, source_catalog in enumerate(source_catalogs_in_order):
         catalog_path = source_catalog_paths[source_catalog.name]
 
         if catalog_path.endswith(".json.gz"):
@@ -256,20 +256,25 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
             --discard-loci-with-non-ACGT-bases-in-reference \
             --discard-loci-with-non-ACGTN-bases-in-motif \
             --output-path {filtered_catalog_path} \
-            {catalog_path}""", step_number=3)
+            {catalog_path}""",
+            step_number=6)
 
         print(f"Stats for {catalog_path}")
-        run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {filtered_catalog_path}", step_number=3)
+        run(f"python3 -m str_analysis.compute_catalog_stats "
+            f"--reference-fasta {args.hg38_reference_fasta} "
+            f"--verbose "
+            f"{filtered_catalog_path}",
+            step_number=7)
 
-    # NOTE: we don't use the --merge-adjacent-loci-with-same-motif  option for str_analysis.merge_loci because
+    # NOTE: we don't use the --merge-adjacent-loci-with-same-motif option for str_analysis.merge_loci because
     # it's important to preserve locus definitions as they appear in the individual source catalogs. If loci
     # are merged together, this can create incompatibility with loci in source catalogs (ie. the illumina catalog) or
     # between future versions of the overall Simple Repeat Catalog since newly-added loci could merge with previously
     # added loci, causing loss of those loci from new versions of the catalog. Variation cluster analysis is a better
     # way to merge adjacent loci where needed.
-    source_catalog_paths_for_merge_command1 = " ".join([
+    source_catalog_paths_for_merge_command_v1 = " ".join([
         f"{source_catalog.name}:{filtered_source_catalog_paths[source_catalog.name]}"
-        for source_catalog in source_catalogs_in_order if source_catalog.merge == 1
+        for source_catalog in source_catalogs_in_order if source_catalog.merge == "v1"
     ])
 
     run(f"""python3 -u -m str_analysis.merge_loci --verbose \
@@ -282,8 +287,8 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --write-outer-join-table \
         --write-bed-files-with-unique-loci \
         --outer-join-overlap-table-min-sources 1 \
-        --output-prefix {output_prefix}.merged1 \
-        {source_catalog_paths_for_merge_command1}""", step_number=4)
+        --output-prefix {output_prefix}.merged_v1 \
+        {source_catalog_paths_for_merge_command_v1}""", step_number=8)
 
     run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
         --reference-fasta {args.hg38_reference_fasta} \
@@ -291,47 +296,14 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --max-motif-size {max_motif_size} \
         --min-interval-size-bp 1 \
         --discard-overlapping-intervals-with-similar-motifs \
-        --output-path {output_prefix}.merged1.annotated.json.gz \
-        {output_prefix}.merged1.json.gz""", step_number=5)
+        --output-path {output_prefix}.merged_v1.annotated.json.gz \
+        {output_prefix}.merged_v1.json.gz""", step_number=9)
 
-    source_catalog_paths_for_merge_command2 = " ".join([
-        f"merged:{output_prefix}.merged1.annotated.json.gz",
+    source_catalog_paths_for_merge_command_v2a = " ".join([
+        f"merged:{output_prefix}.merged_v1.annotated.json.gz",
     ] + [
         f"{source_catalog.name}:{filtered_source_catalog_paths[source_catalog.name]}"
-        for source_catalog in source_catalogs_in_order if source_catalog.merge == 2
-    ])
-
-    run(f"""python3 -u -m str_analysis.merge_loci --verbose \
-            --add-found-in-fields \
-            --output-format JSON \
-            --overlapping-loci-action keep-first \
-            --write-merge-stats-tsv \
-            --write-outer-join-table \
-            --write-bed-files-with-unique-loci \
-            --overlap-fraction 0.66 \
-            --motif-length-match-sufficient-for-VNTRs \
-            --min-jaccard-similarity 0.66 \
-            --outer-join-overlap-table-min-sources 1 \
-            --output-prefix {output_prefix}.merged2 \
-            {source_catalog_paths_for_merge_command2}""", step_number=6)
-
-    run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
-            --reference-fasta {args.hg38_reference_fasta} \
-            --gene-models-source gencode \
-            --gene-models-source refseq \
-            --gene-models-source mane \
-            --known-disease-associated-loci {primary_disease_associated_loci_path} \
-            --min-motif-size {min_motif_size} \
-            --max-motif-size {max_motif_size} \
-            --min-interval-size-bp 1 \
-            --output-path {output_prefix}.merged2.annotated.json.gz \
-            {output_prefix}.merged2.json.gz""", step_number=7)
-
-    source_catalog_paths_for_merge_command3 = " ".join([
-       f"merged:{output_prefix}.merged2.annotated.json.gz",
-    ] + [
-       f"{source_catalog.name}:{filtered_source_catalog_paths[source_catalog.name]}"
-        for source_catalog in source_catalogs_in_order if source_catalog.merge == 3
+        for source_catalog in source_catalogs_in_order if source_catalog.merge == "v2a"
     ])
 
     run(f"""python3 -u -m str_analysis.merge_loci --verbose \
@@ -339,14 +311,63 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --output-format JSON \
         --overlapping-loci-action keep-first \
         --write-merge-stats-tsv \
-        --write-outer-join-table \
-        --write-bed-files-with-unique-loci \
+        --overlap-fraction 0.66 \
+        --motif-length-match-sufficient-for-VNTRs \
+        --min-jaccard-similarity 0.66 \
+        --output-prefix {output_prefix}.merged_v2a \
+        {source_catalog_paths_for_merge_command_v2a}""", step_number=10)
+
+    run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
+        --reference-fasta {args.hg38_reference_fasta} \
+        --min-motif-size {min_motif_size} \
+        --max-motif-size {max_motif_size} \
+        --min-interval-size-bp 1 \
+        --output-path {output_prefix}.merged_v2a.annotated.json.gz \
+        {output_prefix}.merged_v2a.json.gz""", step_number=11)
+
+    source_catalog_paths_for_merge_command_v2b = " ".join([
+       f"merged:{output_prefix}.merged_v2a.annotated.json.gz",
+    ] + [
+       f"{source_catalog.name}:{filtered_source_catalog_paths[source_catalog.name]}"
+        for source_catalog in source_catalogs_in_order if source_catalog.merge == "v2b"
+    ])
+
+    run(f"""python3 -u -m str_analysis.merge_loci --verbose \
+        --add-found-in-fields \
+        --output-format JSON \
+        --overlapping-loci-action keep-first \
+        --write-merge-stats-tsv \
         --overlap-fraction 0.66 \
         --motif-length-match-sufficient-for-VNTRs \
         --min-jaccard-similarity 0.2 \
-        --outer-join-overlap-table-min-sources 1 \
-        --output-prefix {output_prefix}.merged3 \
-        {source_catalog_paths_for_merge_command3}""", step_number=8)
+        --output-prefix {output_prefix}.merged_v2b \
+        {source_catalog_paths_for_merge_command_v2b}""", step_number=12)
+
+    run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
+        --reference-fasta {args.hg38_reference_fasta} \
+        --min-motif-size {min_motif_size} \
+        --max-motif-size {max_motif_size} \
+        --min-interval-size-bp 1 \
+        --output-path {output_prefix}.merged_v2b.annotated.json.gz \
+        {output_prefix}.merged_v2b.json.gz""", step_number=13)
+
+    source_catalog_paths_for_final_merge_command = " ".join([
+        f"merged_v1:{output_prefix}.merged_v1.annotated.json.gz",
+        f"merged_v2a:{output_prefix}.merged_v2a.annotated.json.gz",
+        f"merged_v2b:{output_prefix}.merged_v2b.annotated.json.gz",
+    ])
+
+    run(f"""python3 -u -m str_analysis.merge_loci --verbose \
+        --add-found-in-fields \
+        --output-format JSON \
+        --overlap-fraction 0.66 \
+        --min-jaccard-similarity 0.66 \
+        --motif-length-match-sufficient-for-VNTRs \
+        --only-compare-loci-from-different-catalogs \
+        --overlapping-loci-action keep-first \
+        --write-merge-stats-tsv \
+        --output-prefix {output_prefix}.final_merged \
+        {source_catalog_paths_for_final_merge_command}""", step_number=14)
 
     annotated_catalog_path = f"{output_prefix}.EH.with_annotations.json.gz"
     run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
@@ -359,7 +380,7 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --max-motif-size {max_motif_size} \
         --min-interval-size-bp 1 \
         --output-path {annotated_catalog_path} \
-        {output_prefix}.merged3.json.gz""", step_number=9)
+        {output_prefix}.final_merged.json.gz""", step_number=15)
 
     # create a version of the ExpansionHunter catalog without extra annotations
     run(f"""python3 << EOF
@@ -385,14 +406,14 @@ for record in ijson.items(f, "item", use_float=True):
 out.write("]")
 print(f"Wrote {{i:,d}} out of {{total:,d}} ({{i/total:0.1%}}%) loci to {output_prefix}.EH.json.gz")
 EOF
-""", step_number=10)
+""", step_number=16)
 
     run(f"python3 -m str_analysis.filter_out_loci_with_Ns_in_flanks "
         f"-R {args.hg38_reference_fasta} "
         f"-o {output_prefix}.EH.without_loci_with_Ns_in_flanks.json.gz "
         f"--output-list-of-filtered-loci {output_prefix}.loci_with_Ns_in_flanks.txt "
-        f"{output_prefix}.EH.json.gz", step_number=11)
-    run(f"mv {output_prefix}.EH.without_loci_with_Ns_in_flanks.json.gz {output_prefix}.EH.json.gz", step_number=11)
+        f"{output_prefix}.EH.json.gz", step_number=17)
+    run(f"mv {output_prefix}.EH.without_loci_with_Ns_in_flanks.json.gz {output_prefix}.EH.json.gz", step_number=18)
 
     release_files = [
         f"{output_prefix}.bed.gz",
@@ -415,28 +436,28 @@ EOF
             --output-catalog-json-path {output_prefix}.EH.with_annotations.with_variation_clusters.json.gz \
             --known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} \
             {args.variation_clusters_bed} \
-            {annotated_catalog_path}""", step_number=12)
+            {annotated_catalog_path}""", step_number=19)
 
-        run(f"mv {output_prefix}.EH.with_annotations.with_variation_clusters.json.gz {annotated_catalog_path}", step_number=12)
+        run(f"mv {output_prefix}.EH.with_annotations.with_variation_clusters.json.gz {annotated_catalog_path}", step_number=20)
 
         run(f"""python3 {base_dir}/scripts/generate_TRGT_catalog_with_isolated_repeats_and_variation_clusters.py \
             -o {variation_clusters_and_isolated_TRs_release_filename} \
             {args.variation_clusters_bed} \
-            {annotated_catalog_path}""", step_number=13)
+            {annotated_catalog_path}""", step_number=21)
 
         release_files.append(variation_clusters_and_isolated_TRs_release_filename)
 
         run(f"python3 {base_dir}/scripts/convert_trgt_catalog_to_longtr_format.py {variation_clusters_and_isolated_TRs_release_filename}",
-            step_number=14)
+            step_number=22)
 
         release_files.append(variation_clusters_and_isolated_TRs_release_filename.replace(".TRGT.bed.gz", ".LongTR.bed.gz"))
 
     # add allele frequencies to the catalog
     run(f"""python3 -u {base_dir}/scripts/add_allele_frequency_annotations.py \
             --add-t2t-assembly-frequencies-to-overlapping-loci \
-            -o {annotated_catalog_path}.with_allele_frequencies.json.gz  {annotated_catalog_path}""", step_number=15)
+            -o {annotated_catalog_path}.with_allele_frequencies.json.gz  {annotated_catalog_path}""", step_number=23)
 
-    run(f"mv {annotated_catalog_path}.with_allele_frequencies.json.gz {annotated_catalog_path}", step_number=15)
+    run(f"mv {annotated_catalog_path}.with_allele_frequencies.json.gz {annotated_catalog_path}", step_number=24)
 
     # add AoU1027 annotations
     if args.aou1027_annotations:
@@ -444,9 +465,9 @@ EOF
             --output-catalog-json-path {output_prefix}.EH.with_annotations.with_AoU_annotations.json.gz \
             --known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} \
             {args.aou1027_annotations} \
-            {annotated_catalog_path}""", step_number=16)
+            {annotated_catalog_path}""", step_number=25)
 
-        run(f"mv {output_prefix}.EH.with_annotations.with_AoU_annotations.json.gz {annotated_catalog_path}", step_number=16)
+        run(f"mv {output_prefix}.EH.with_annotations.with_AoU_annotations.json.gz {annotated_catalog_path}", step_number=26)
 
     # TODO: add HPRC256 and TenK10K annotations?
 
@@ -456,7 +477,7 @@ EOF
 
     # convert to BED
     run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_bed --split-adjacent-repeats "
-        f"{annotated_catalog_path}  --output-file {output_prefix}.bed.gz", step_number=17)
+        f"{annotated_catalog_path}  --output-file {output_prefix}.bed.gz", step_number=27)
 
     run(f"python3 -m str_analysis.add_adjacent_loci_to_expansion_hunter_catalog "
         f"--ref-fasta {args.hg38_reference_fasta} "
@@ -464,9 +485,9 @@ EOF
         f"--add-extra-field TRsInRegion "
         f"--only-add-extra-fields "
         f"-o {annotated_catalog_path}.with_adjacent_loci_annotation.json.gz "
-        f"{annotated_catalog_path}", step_number=18)
+        f"{annotated_catalog_path}", step_number=28)
 
-    run(f"mv {annotated_catalog_path}.with_adjacent_loci_annotation.json.gz {annotated_catalog_path}", step_number=18)
+    run(f"mv {annotated_catalog_path}.with_adjacent_loci_annotation.json.gz {annotated_catalog_path}", step_number=29)
 
 
     # convert to TSV
@@ -505,25 +526,25 @@ output_tsv_path = "{annotated_catalog_path.replace('.json.gz', '') + '.tsv.gz'}"
 df.to_csv(output_tsv_path, sep="\\t", index=False)
 print(f"Wrote {{len(df):,d}} rows to {{output_tsv_path}} with columns: {{pformat(list(df.columns))}}")
 EOF
-""", step_number=19)
+""", step_number=30)
 
     # convert the catalog from ExpansionHunter catalog format to TRGT, LongTR, HipSTR, and GangSTR formats
-    run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_trgt_catalog -R {args.hg38_reference_fasta} --split-adjacent-repeats {annotated_catalog_path}  --output-file {output_prefix}.TRGT.bed", step_number=20)
-    run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_longtr_format  {annotated_catalog_path}  --output-file {output_prefix}.LongTR.bed", step_number=21)
-    run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_hipstr_format  {annotated_catalog_path}  --output-file {output_prefix}.HipSTR.bed", step_number=22)
-    run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_gangstr_spec   {annotated_catalog_path}  --output-file {output_prefix}.GangSTR.bed", step_number=23)
+    run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_trgt_catalog -R {args.hg38_reference_fasta} --split-adjacent-repeats {annotated_catalog_path}  --output-file {output_prefix}.TRGT.bed", step_number=31)
+    run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_longtr_format  {annotated_catalog_path}  --output-file {output_prefix}.LongTR.bed", step_number=32)
+    run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_hipstr_format  {annotated_catalog_path}  --output-file {output_prefix}.HipSTR.bed", step_number=33)
+    run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_gangstr_spec   {annotated_catalog_path}  --output-file {output_prefix}.GangSTR.bed", step_number=34)
 
     # Confirm that the TRGT catalog passes 'trgt validate'
-    run(f"trgt validate --genome {args.hg38_reference_fasta}  --repeats {output_prefix}.TRGT.bed", step_number=24)
+    run(f"trgt validate --genome {args.hg38_reference_fasta}  --repeats {output_prefix}.TRGT.bed", step_number=35)
 
     # Print missing values
-    run(f"python3 {base_dir}/scripts/print_missing_values_percentages_in_json_or_tsv.py  {annotated_catalog_path}", step_number=25)
+    run(f"python3 {base_dir}/scripts/print_missing_values_percentages_in_json_or_tsv.py  {annotated_catalog_path}", step_number=36)
 
     # Perform basic internal consistency checks on the JSON catalog
     run(f"python3 {base_dir}/scripts/validate_catalog.py " +
         f"--known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} " +
         ("--check-for-presence-of-annotations --check-for-presence-of-all-known-loci --check-for-presence-of-all-loci-from-v1 " if motif_size_label == "1_to_1000bp_motifs" else "") +
-        f"{annotated_catalog_path}", step_number=26)
+        f"{annotated_catalog_path}", step_number=37)
 
     # copy files to the release_draft folder and compute catalog stats
     updated_release_files = []
@@ -531,23 +552,23 @@ EOF
         if path.endswith(".bed"):
             if not os.path.isfile(f"{path}.gz"):
                 if path.endswith(".TRGT.bed"):
-                    run(f"gzip -f {path}", step_number=27)  # TRGT v1.1.1 and lower only works with gzip, not bgzip
+                    run(f"gzip -f {path}", step_number=38)  # TRGT v1.1.1 and lower only works with gzip, not bgzip
                 else:
-                    run(f"bgzip -f {path}", step_number=27)
+                    run(f"bgzip -f {path}", step_number=39)
             updated_release_files.append(f"{path}.gz")
         else:
             if path.endswith(".json") or path.endswith(".json.gz") and ".EH." in path:
-                run(f"python3 {base_dir}/scripts/validate_json.py -k LocusId -k LocusStructure -k ReferenceRegion -k VariantType {path}", step_number=28)
+                run(f"python3 {base_dir}/scripts/validate_json.py -k LocusId -k LocusStructure -k ReferenceRegion -k VariantType {path}", step_number=40)
             updated_release_files.append(path)
 
     if release_tar_gz_path is None:
         for path in updated_release_files:
-            run(f"cp {path} {release_draft_folder}", step_number=29)
+            run(f"cp {path} {release_draft_folder}", step_number=41)
     else:
-        run(f"tar czf {release_tar_gz_path} -C {os.path.dirname(output_prefix)} " + " ".join([os.path.basename(p) for p in updated_release_files]), step_number=30)
-        run(f"cp {release_tar_gz_path} {release_draft_folder}", step_number=30)
+        run(f"tar czf {release_tar_gz_path} -C {os.path.dirname(output_prefix)} " + " ".join([os.path.basename(p) for p in updated_release_files]), step_number=42)
+        run(f"cp {release_tar_gz_path} {release_draft_folder}", step_number=43)
 
-    run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {annotated_catalog_path}", step_number=31)
+    run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {annotated_catalog_path}", step_number=44)
 
     # report hours, minutes, seconds relative to script_start_time
     diff = time.time() - script_start_time
@@ -569,7 +590,7 @@ EOF
         comparison_catalog_paths[catalog_name] = os.path.abspath(os.path.basename(url))
 
     path_after_conversion = comparison_catalog_paths["GangSTR_v17"].replace(".bed.gz", ".json.gz")
-    run(f"python3 -u -m str_analysis.convert_gangstr_spec_to_expansion_hunter_catalog --verbose {comparison_catalog_paths['GangSTR_v17']} -o {path_after_conversion}", step_number=32)
+    run(f"python3 -u -m str_analysis.convert_gangstr_spec_to_expansion_hunter_catalog --verbose {comparison_catalog_paths['GangSTR_v17']} -o {path_after_conversion}", step_number=45)
     comparison_catalog_paths["GangSTR_v17"] = path_after_conversion
 
     # compare catalog to other catalogs
@@ -587,9 +608,9 @@ EOF
             --max-motif-size {max_motif_size} \
             --output-path {filtered_comparison_catalog_path} \
             --verbose \
-            {path}""", step_number=33)
+            {path}""", step_number=46)
 
-        run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {filtered_comparison_catalog_path}", step_number=34)
+        run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {filtered_comparison_catalog_path}", step_number=47)
 
         run(f"""python3 -u -m str_analysis.merge_loci \
             --output-prefix {catalog_name} \
@@ -598,7 +619,7 @@ EOF
             --verbose \
             --write-merge-stats-tsv \
             {annotated_catalog_path} \
-            {filtered_comparison_catalog_path}""", step_number=35)
+            {filtered_comparison_catalog_path}""", step_number=48)
 
     diff = time.time() - start_time
     print(f"Done with comparisons. Took {diff//3600:.0f}h, {(diff%3600)//60:.0f}m, {diff%60:.0f}s")

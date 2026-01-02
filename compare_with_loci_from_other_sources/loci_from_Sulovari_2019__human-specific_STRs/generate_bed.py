@@ -16,6 +16,7 @@ annotation in human and NHP haplotypes.
 Author: Generated for tandem repeat catalog comparison
 """
 
+from collections import Counter
 import pandas as pd
 import os
 import sys
@@ -41,6 +42,7 @@ def main():
     # CHR, START, END are the genomic coordinates (GRCh38/hg38)
     # GRCh38_motif is the repeat motif
     bed_rows = []
+    filter_reason_counts = Counter()
 
     for idx, row in df.iterrows():
         chrom = row['CHR']
@@ -56,7 +58,7 @@ def main():
         if not str(chrom).startswith('chr'):
             chrom = f'chr{chrom}'
 
-        passes_filters, adjusted_motif = does_locus_pass_filters(
+        passes_filters, adjusted_motif, filter_reason = does_locus_pass_filters(
             chrom, start, end, motif,
             min_repeats_in_reference=2,
             min_adjusted_motif_purity=0.2,
@@ -66,9 +68,14 @@ def main():
             if len(adjusted_motif) != len(motif):
                 print(f"Simplified {chrom}:{start}-{end} motif: {motif} => {adjusted_motif}")
             bed_rows.append((chrom, start, end, adjusted_motif))
-
+        else:
+            filter_reason_counts[filter_reason] += 1
 
     print(f"\n  {len(bed_rows):,} out of {len(df):,} loci passed filters")
+    if filter_reason_counts:
+        print("  Filter reasons:")
+        for reason, count in filter_reason_counts.most_common():
+            print(f"    {count:10,d}  {reason}")
 
     # Sort by chromosome and position
     chrom_order = {f'chr{i}': i for i in range(1, 23)}
@@ -93,10 +100,9 @@ def main():
     os.system(f'bgzip -f {output_file}')
     os.system(f'tabix -p bed {output_file}.gz')
 
-    print(f"\nDone! Created {output_file}.gz with {len(bed_rows):,} loci")
-    print(f"First few entries:")
-    for row in bed_rows[:5]:
-        print(f"  {row[0]}\t{row[1]}\t{row[2]}\t{row[3]}")
+    print("=" * 50)
+    print(f"Wrote {len(bed_rows):,d} loci to {output_file}.gz")
+    print("=" * 50)
 
 if __name__ == '__main__':
     main()
