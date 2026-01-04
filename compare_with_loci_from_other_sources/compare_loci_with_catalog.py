@@ -71,6 +71,7 @@ def main():
     p.add_argument("--write-bed-files-with-subsets", action="store_true",
                    help="Output BED files of loci with different concordance levels to enable manual review")
     p.add_argument("--overlap-by-motif-max-x", type=int, default=None, help="Maximum x-axis value for the overlap by motif plot. If not specified, the maximum x-axis value will be determined automatically.")
+    p.add_argument("--overlap-by-motif-stratify", action="store_true", help="In addition to the overall plot, generate separate plots by motif size")
     p.add_argument("--catalog-bed-path",
                    default="TRExplorer_v2:../results__2025-12-07/release_draft_2025-12-07/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz",
                    help="BED file path for the main TR catalog. Optionally, the path can be preceded by a name for the catalog, followed by ':' and then the path")
@@ -380,7 +381,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_
         ax1.tick_params(axis="y", labelcolor="cornflowerblue")
         ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
 
-        if len(catalog_names) >= 2:
+        if len(catalog_names) >= 3:
             ax2.set_ylabel(f"Count ({catalog_names[1]})\nCount ({catalog_names[2]})", color="coral")
             ax2.tick_params(axis="y", labelcolor="coral")
             ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
@@ -485,7 +486,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_
         ax1.tick_params(axis="y", labelcolor="cornflowerblue")
         ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
 
-        if len(catalog_names) >= 2:
+        if len(catalog_names) >= 3:
             ax2.set_ylabel(f"Count ({catalog_names[1]})\nCount ({catalog_names[2]})", color="coral")
             ax2.tick_params(axis="y", labelcolor="coral")
             ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
@@ -561,71 +562,80 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_
             plt.close()
 
     # horizontal bar plot of the values in the 'overlap' column with color by 'motif_match' column
-    plt.figure(figsize=(12, 6))
-    y_axis_order = list(OVERLAP_SCORE_MAP.values())
-    if sum(df["overlap_score"] < 0)/len(df) > 0.85:
-        y_axis_order = y_axis_order[:-1]
-    elif sum(df["overlap_score"] < 1)/len(df) > 0.85:
-        y_axis_order = y_axis_order[:-2]
-    elif not args.write_loci_absent_from_new_catalog:
-        y_axis_order = y_axis_order[:-1]
+    dfs_to_plot = [("all", df)]
+    if args.overlap_by_motif_stratify:
+        df["motif_size"] = df["motif"].str.len()
+        for motif_size in range(1, 7):
+            dfs_to_plot.append((f"{motif_size}bp", df[df["motif_size"] == motif_size]))
+        dfs_to_plot.append(("7+bp", df[df["motif_size"] > 6]))
+            
+    for plot_label, df_to_plot in dfs_to_plot:
+        df = df_to_plot
+        plt.figure(figsize=(12, 6))
+        y_axis_order = list(OVERLAP_SCORE_MAP.values())
+        if sum(df["overlap_score"] < 0)/len(df) > 0.85:
+            y_axis_order = y_axis_order[:-1]
+        elif sum(df["overlap_score"] < 1)/len(df) > 0.85:
+            y_axis_order = y_axis_order[:-2]
+        elif not args.write_loci_absent_from_new_catalog:
+            y_axis_order = y_axis_order[:-1]
 
-    if not new_catalog_has_motifs:
-        y_axis_order = y_axis_order[1:]
+        if not new_catalog_has_motifs:
+            y_axis_order = y_axis_order[1:]
 
-    # use stacked bar plot to plot the values in the 'overlap' column with color by 'motif_match' column
-    plot_data = df.groupby("overlap")["motif_match"].value_counts().reset_index(name="count")
-    plot_data_pivot = plot_data.pivot(index="overlap", columns="motif_match", values="count")
-    plot_data_pivot = plot_data_pivot.reindex(y_axis_order[::-1]).fillna(0)
+        # use stacked bar plot to plot the values in the 'overlap' column with color by 'motif_match' column
+        plot_data = df.groupby("overlap")["motif_match"].value_counts().reset_index(name="count")
+        plot_data_pivot = plot_data.pivot(index="overlap", columns="motif_match", values="count")
+        plot_data_pivot = plot_data_pivot.reindex(y_axis_order[::-1]).fillna(0)
 
-    # reorder columns to match legend order
-    desired_order = list(MOTIF_MATCH_SCORE_MAP.values())
-    plot_data_pivot = plot_data_pivot[[col for col in desired_order[::-1] if col in plot_data_pivot.columns]]
-    if new_catalog_has_motifs:
-        alpha = 0.5
-        motif_match_colors = {
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF]: (0.0, 0.7, 0.0, alpha),                     # green
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH]: (0.95, 0.8, 0.1, alpha),             # yellow
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SHORTER_MOTIF_IN_MAIN_CATALOG]: (0.95, 0.0, 0.0, alpha),  # light red
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_LONGER_MOTIF_IN_MAIN_CATALOG]: (0.5, 0.0, 0.0, alpha),   # dark red
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG]: (0.0, 0.0, 0.7, alpha),       #  blue
-            MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_NEW_CATALOG]: (0.0, 0.0, 0.7, alpha),        #  blue
-        }
+        # reorder columns to match legend order
+        desired_order = list(MOTIF_MATCH_SCORE_MAP.values())
+        plot_data_pivot = plot_data_pivot[[col for col in desired_order[::-1] if col in plot_data_pivot.columns]]
+        if new_catalog_has_motifs:
+            alpha = 0.5
+            motif_match_colors = {
+                MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF]: (0.0, 0.7, 0.0, alpha),                     # green
+                MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SAME_MOTIF_LENGTH]: (0.95, 0.8, 0.1, alpha),             # yellow
+                MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_SHORTER_MOTIF_IN_MAIN_CATALOG]: (0.95, 0.0, 0.0, alpha),  # light red
+                MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_LONGER_MOTIF_IN_MAIN_CATALOG]: (0.5, 0.0, 0.0, alpha),   # dark red
+                MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_MAIN_CATALOG]: (0.0, 0.0, 0.7, alpha),       #  blue
+                MOTIF_MATCH_SCORE_MAP[MOTIF_MATCH_SCORE_FOR_ABSENT_FROM_NEW_CATALOG]: (0.0, 0.0, 0.7, alpha),        #  blue
+            }
 
-        colors = [motif_match_colors.get(col, (0.5, 0.5, 0.5, alpha)) for col in plot_data_pivot.columns]
-    else:
-        colors = None
+            colors = [motif_match_colors.get(col, (0.5, 0.5, 0.5, alpha)) for col in plot_data_pivot.columns]
+        else:
+            colors = None
 
-    ax = plot_data_pivot.plot(kind="barh", stacked=True, color=colors, ax=plt.gca())
+        ax = plot_data_pivot.plot(kind="barh", stacked=True, color=colors, ax=plt.gca())
 
-    # make bars thicker
-    for patch in ax.patches:
-        patch.set_height(patch.get_height() * 1.5)
-    plt.title(f"Does {args.catalog_name.replace('_', ' ')} capture TR loci from {new_catalog_name}?", pad=10)
-    plt.xlabel("# of TR loci")
+        # make bars thicker
+        for patch in ax.patches:
+            patch.set_height(patch.get_height() * 1.5)
+        plt.title(f"Does {args.catalog_name.replace('_', ' ')} capture TR loci ({plot_label} motifs) from {new_catalog_name}?", pad=10)
+        plt.xlabel("# of TR loci")
 
-    plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+        plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
 
-    # shift the plot to the right by 10% of the width of the plot
-    plt.gca().set_position([0.22, 0.1, 0.75, 0.8])
-    plt.gca().grid(axis="x", linestyle="-", linewidth=0.5, color="lightgray")
+        # shift the plot to the right by 10% of the width of the plot
+        plt.gca().set_position([0.22, 0.1, 0.75, 0.8])
+        plt.gca().grid(axis="x", linestyle="-", linewidth=0.5, color="lightgray")
 
-    # sort colors by motif_match_score
-    handles, labels = plt.gca().get_legend_handles_labels()
-    handle_label_map = dict(zip(labels, handles))
-    ordered_handles = [handle_label_map[label] for label in desired_order if label in handle_label_map]
-    ordered_labels = [label for label in desired_order if label in handle_label_map]
+        # sort colors by motif_match_score
+        handles, labels = plt.gca().get_legend_handles_labels()
+        handle_label_map = dict(zip(labels, handles))
+        ordered_handles = [handle_label_map[label] for label in desired_order if label in handle_label_map]
+        ordered_labels = [label for label in desired_order if label in handle_label_map]
 
-    if overlap_by_motif_max_x is not None:
-        plt.gca().set_xlim(0, overlap_by_motif_max_x)
-    plt.legend(ordered_handles, ordered_labels, title="", frameon=True)
-    plt.gca().set_ylabel("")
-    plt.gca().spines["top"].set_visible(False)
-    plt.gca().spines["right"].set_visible(False)
-    output_path = f"{args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.overlap_distribution_by_motif_match.png"
-    plt.savefig(output_path)
-    print(f"Wrote overlap distribution by motif match to {output_path}")
-    plt.close()
+        if overlap_by_motif_max_x is not None:
+            plt.gca().set_xlim(0, overlap_by_motif_max_x)
+        plt.legend(ordered_handles, ordered_labels, title="", frameon=True)
+        plt.gca().set_ylabel("")
+        plt.gca().spines["top"].set_visible(False)
+        plt.gca().spines["right"].set_visible(False)
+        output_path = f"{args.plot_output_dir}/{args.catalog_name}_vs_{new_catalog_name}.overlap_distribution_by_motif_match.{plot_label}.png"
+        plt.savefig(output_path)
+        print(f"Wrote overlap distribution by motif match to {output_path}")
+        plt.close()
 
 def load_main_catalog_loci(args):
     print(f"Parsing {args.catalog_bed_path} to interval tree")
