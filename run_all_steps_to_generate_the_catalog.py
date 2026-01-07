@@ -68,8 +68,8 @@ parser.add_argument("--aou1027-annotations", default="gs://tandem-repeat-catalog
                     help="Path of the AoU1027 annotations table shared by Matt Danzi")
 parser.add_argument("--skip-aou1027-annotations", action="store_true",
                     help="Skip adding AoU1027 annotations to the catalog")
-parser.add_argument("--variation-clusters-bed", default="gs://tandem-repeat-catalog/v2.0/trs_and_vcs_2025_12_01.bed.gz",
-                    help="Variation clusters file shared by Egor Dolzhenko")
+parser.add_argument("--variation-clusters-tsv", default="gs://tandem-repeat-catalog/v2.0/genome_clusters-v2.tsv.gz",
+                    help="Variation clusters TSV file shared by Egor Dolzhenko")
 parser.add_argument("--skip-variation-cluster-annotations", action="store_true",
                     help="Skip adding variation cluster annotations to the catalog")
 parser.add_argument("--timestamp", default=datetime.datetime.now().strftime('%Y-%m-%d'),
@@ -81,9 +81,9 @@ args = parser.parse_args()
 print("TIMESTAMP:", args.timestamp)
 
 
-for key in "hg38_reference_fasta", "gencode_gtf", "variation_clusters_bed", "aou1027_annotations", "hprc256_annotations", "tenk10k_annotations":
+for key in "hg38_reference_fasta", "gencode_gtf", "variation_clusters_tsv", "aou1027_annotations", "hprc256_annotations", "tenk10k_annotations":
     if (key == "aou1027_annotations" and args.skip_aou1027_annotations
-        ) or (key == "variation_clusters_bed" and args.skip_variation_cluster_annotations
+        ) or (key == "variation_clusters_tsv" and args.skip_variation_cluster_annotations
         ) or (key == "hprc256_annotations" and args.skip_hprc256_annotations
         ) or (key == "tenk10k_annotations" and args.skip_tenk10k_annotations):
 
@@ -428,21 +428,21 @@ EOF
 
 
     # add variation cluster annotations to the catalog
-    if args.variation_clusters_bed and not args.skip_variation_cluster_annotations:
+    if args.variation_clusters_tsv and not args.skip_variation_cluster_annotations:
         variation_clusters_and_isolated_TRs_release_filename = f"{args.variation_clusters_output_prefix}.TRGT.bed.gz"
 
         run(f"""python3 {base_dir}/scripts/add_variation_cluster_annotations_to_catalog.py \
             --verbose \
             --output-catalog-json-path {output_prefix}.EH.with_annotations.with_variation_clusters.json.gz \
             --known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} \
-            {args.variation_clusters_bed} \
+            {args.variation_clusters_tsv} \
             {annotated_catalog_path}""", step_number=19)
 
         run(f"mv {output_prefix}.EH.with_annotations.with_variation_clusters.json.gz {annotated_catalog_path}", step_number=20)
 
         run(f"""python3 {base_dir}/scripts/generate_TRGT_catalog_with_isolated_repeats_and_variation_clusters.py \
             -o {variation_clusters_and_isolated_TRs_release_filename} \
-            {args.variation_clusters_bed} \
+            {args.variation_clusters_tsv} \
             {annotated_catalog_path}""", step_number=21)
 
         release_files.append(variation_clusters_and_isolated_TRs_release_filename)
