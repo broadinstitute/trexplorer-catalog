@@ -204,7 +204,7 @@ def main():
                     annotate_bed_file(f"{output_bed2_path}.gz", args.reference_fasta)
 
         if args.print_stats > 0:
-            print_stats(args, main_catalog_loci, df, new_catalog_name=new_catalog_name, overlap_by_motif_max_x=args.overlap_by_motif_max_x)
+            print_stats(args, main_catalog_loci, df, new_catalog_name=new_catalog_name, reference_fasta=reference_fasta, overlap_by_motif_max_x=args.overlap_by_motif_max_x)
 
         df.sort_values(by=["chrom", "start_0based", "end_1based"], inplace=True)
         df.to_csv(output_tsv, sep="\t", index=False)
@@ -227,7 +227,7 @@ def annotate_bed_file(bed_file_path, reference_fasta_path):
     print(cmd)
     os.system(cmd)
 
-def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_max_x=None):
+def print_stats(args, main_catalog_loci, df, new_catalog_name, reference_fasta, overlap_by_motif_max_x=None):
     # print some stats
     total_count = collections.Counter()
     main_catalog_motif_size_distribution = collections.Counter()
@@ -338,6 +338,64 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, overlap_by_motif_
             output_path = f"{args.plot_output_dir}/{catalog_name}.motif_size_distribution.png"
             plt.savefig(output_path)
             print(f"Wrote motif size distribution to {output_path}")
+            plt.close()
+
+        # Generate locus purity distribution plots for each catalog
+        print(f"Computing purity distribution for {args.catalog_name} catalog...")
+        main_catalog_purity_distribution = collections.Counter()
+        total_loci = sum(len(tree) for tree in main_catalog_loci.values())
+        with tqdm.tqdm(total=total_loci, unit=" loci") as pbar:
+            for chrom, tree in main_catalog_loci.items():
+                for interval in tree:
+                    main_catalog_motif = interval.data["motif"]
+                    if interval.begin < interval.end:
+                        motif_purity, _, _ = compute_purity_stats_for_interval(
+                            reference_fasta, chrom, interval.begin, interval.end, main_catalog_motif)
+                        if motif_purity is not None and not pd.isna(motif_purity):
+                            # Bin purity to nearest 0.05
+                            binned_purity = round(motif_purity * 20) / 20
+                            main_catalog_purity_distribution[binned_purity] += 1
+                    pbar.update(1)
+
+        new_catalog_purity_distribution = collections.Counter()
+        new_catalog_purity_distribution2 = collections.Counter()
+        for _, row in df1.iterrows():
+            purity = row.get(f"{new_catalog_name}_purity_of_motif")
+            if purity is not None and not pd.isna(purity):
+                binned_purity = round(purity * 20) / 20
+                new_catalog_purity_distribution[binned_purity] += 1
+                if row["overlap_score"] == 0:
+                    new_catalog_purity_distribution2[binned_purity] += 1
+
+        purity_catalog_map = {
+            args.catalog_name: main_catalog_purity_distribution,
+            new_catalog_name: new_catalog_purity_distribution,
+            f"{new_catalog_name}_loci_absent_from_{args.catalog_name}": new_catalog_purity_distribution2,
+        }
+
+        # Create purity bins from 0 to 1 in 0.05 increments
+        purity_bin_labels = [f"{i*0.05:.2f}" for i in range(21)]
+
+        for catalog_name, purity_distribution in purity_catalog_map.items():
+            if sum(purity_distribution.values()) == 0:
+                continue
+            catalog_name_clean = catalog_name.replace(" ", "_")
+            plt.figure(figsize=(12, 6))
+            # Convert counter to ordered list matching bin labels
+            counts = [purity_distribution.get(i*0.05, 0) for i in range(21)]
+            sns.barplot(x=purity_bin_labels, y=counts, color="cornflowerblue")
+            plt.xticks(rotation=45)
+            plt.xlabel("Motif Purity")
+            plt.ylabel("Count")
+            plt.gca().spines["top"].set_visible(False)
+            plt.gca().spines["right"].set_visible(False)
+            plt.gca().grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray")
+            plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+            plt.title(f"{catalog_name_clean.replace('_', ' ')} locus purity distribution", pad=10)
+            output_path = f"{args.plot_output_dir}/{catalog_name_clean}.locus_purity_distribution.png"
+            plt.tight_layout()
+            plt.savefig(output_path)
+            print(f"Wrote locus purity distribution to {output_path}")
             plt.close()
 
         # add a single bar plot that shows multiple bars side by side for each motif size - one for each catalog
