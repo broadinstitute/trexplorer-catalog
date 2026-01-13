@@ -9,7 +9,7 @@ Typical usage:
     from compare_loci_utils import select_loci
 
     df = pd.read_table("loci.bed", names=["chrom", "start_0based", "end_1based", "motif"])
-    df = select_loci(df, min_repeats_in_reference=2, min_adjusted_motif_purity=0.2)
+    df = select_loci(df, min_repeats_in_reference=2, min_adjusted_motif_purity=0.2, keep_only_motifs_with_ACGT_bases=True)
 """
 
 import os
@@ -159,6 +159,8 @@ def select_loci(
     min_adjusted_motif_purity=None,
     drop_duplicates=True,
     keep_only_primary_chromosomes=True,
+    keep_only_motifs_with_ACGT_bases=True,
+    min_motif_size=1,
     reference_genome_path=DEFAULT_REFERENCE_GENOME_PATH,
 ):
     """Filter and process a DataFrame of tandem repeat loci.
@@ -183,6 +185,10 @@ def select_loci(
             and motif.
         keep_only_primary_chromosomes: If True, exclude loci on supercontigs
             (chromosomes containing '_' in their name).
+        keep_only_motifs_with_ACGT_bases: If True, exclude loci with motifs
+            containing characters other than A, C, G, T.
+        min_motif_size: Minimum motif size to keep. Applied before computing
+            adjusted motifs. Defaults to 1.
         reference_genome_path: Path to reference genome FASTA file.
 
     Returns:
@@ -197,17 +203,17 @@ def select_loci(
         before_filter = len(df)
         df = df[~df["chrom"].astype(str).str.contains("_")].copy()
         if len(df) != before_filter:
-            print(f"After filtering to primary chromosomes: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci")
+            print(f"After filtering to primary chromosomes: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci - discarded {before_filter - len(df):,d} out of {before_filter:,d} ({(before_filter - len(df))/before_filter:.1%})")
 
     if max_overlap_score is not None:
         before_filter = len(df)
         df = df[df["overlap_score"] <= max_overlap_score].copy()
-        print(f"After filtering to overlap_score <= {max_overlap_score}: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci")
+        print(f"After filtering to overlap_score <= {max_overlap_score}: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci - discarded {before_filter - len(df):,d} out of {before_filter:,d} ({(before_filter - len(df))/before_filter:.1%})")
 
     if max_locus_width is not None:
         before_filter = len(df)
         df = df[(df["end_1based"] - df["start_0based"]) < max_locus_width].copy()
-        print(f"After filtering to locus width < {max_locus_width}bp: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci")
+        print(f"After filtering to locus width < {max_locus_width}bp: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci - discarded {before_filter - len(df):,d} out of {before_filter:,d} ({(before_filter - len(df))/before_filter:.1%})")
 
     if min_repeats_in_reference is not None:
         before_filter = len(df)
@@ -215,7 +221,19 @@ def select_loci(
         df = df[df["motif"].str.len() > 0].copy()
         df["repeat_count"] = (df["end_1based"] - df["start_0based"]) / df["motif"].str.len()
         df = df[df["repeat_count"] >= min_repeats_in_reference].copy()
-        print(f"After filtering to >= {min_repeats_in_reference} repeats: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci")
+        print(f"After filtering to >= {min_repeats_in_reference} repeats: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci - discarded {before_filter - len(df):,d} out of {before_filter:,d} ({(before_filter - len(df))/before_filter:.1%})")
+
+    if keep_only_motifs_with_ACGT_bases:
+        before_filter = len(df)
+        df = df[df["motif"].str.upper().str.match("^[ACGT]+$")].copy()
+        if len(df) != before_filter:
+            print(f"After filtering to motifs with only ACGT bases: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci - discarded {before_filter - len(df):,d} out of {before_filter:,d} ({(before_filter - len(df))/before_filter:.1%})")
+        
+    if min_motif_size > 1:
+        before_filter = len(df)
+        df = df[df["motif"].str.len() >= min_motif_size].copy()
+        if len(df) != before_filter:
+            print(f"After filtering to motif size >= {min_motif_size}: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci - discarded {before_filter - len(df):,d} out of {before_filter:,d} ({(before_filter - len(df))/before_filter:.1%})")
 
     if adjust_motifs_to_maximize_purity:
         df = compute_adjusted_motif_columns(df, reference_genome_path=reference_genome_path)
@@ -228,16 +246,13 @@ def select_loci(
 
         before_filter = len(df)
         df = df[df["adjusted_motif_purity"] >= min_adjusted_motif_purity].copy()
-        print(f"After filtering for purity >= {min_adjusted_motif_purity}: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci")
+        print(f"After filtering for purity >= {min_adjusted_motif_purity}: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci - discarded {before_filter - len(df):,d} out of {before_filter:,d} ({(before_filter - len(df))/before_filter:.1%})")
 
     if drop_duplicates:
         before_filter = len(df)
         df = df.drop_duplicates(subset=["chrom", "start_0based", "end_1based", "motif"])
         if len(df) != before_filter:
             print(f"Dropped {before_filter - len(df):,d} duplicate loci")
-
-    if any(df["motif"].str.upper().str.contains("N")):
-        raise ValueError("Some motifs contain 'N'")
 
     return df
 

@@ -1,3 +1,9 @@
+*.bgz
+*.tar.gz
+*.vcf.gz
+*.zip
+*.tbi
+*.md
 
 .idea
 *.fa

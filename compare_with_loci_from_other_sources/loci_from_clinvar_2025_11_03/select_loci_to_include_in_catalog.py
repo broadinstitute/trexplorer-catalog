@@ -19,7 +19,8 @@ df = select_loci(df,
     min_repeats_in_reference=1,
     min_adjusted_motif_purity=0.2,
     adjust_motifs_to_maximize_purity=True,
-    drop_duplicates=True)
+    drop_duplicates=True,
+    keep_only_motifs_with_ACGT_bases=True)
 
 
 #df = df[df["overlap_score"] <= OVERLAP_SCORE_FOR_JACCARD_SIMILARITY_BELOW_0_2].copy()

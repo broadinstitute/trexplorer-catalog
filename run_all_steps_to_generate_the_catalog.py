@@ -239,7 +239,9 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
 
         extra_args = ""
         if source_catalog.name == "TRExplorerV2:PolymorphicTRsInT2TAssembliesV2":
-            extra_args = f"--min-repeats-in-reference 1 "
+            extra_args = "--min-repeats-in-reference 1 "
+        if source_catalog.name.startswith("TRExplorerV2:"):
+            extra_args += "--discard-loci-with-non-ACGT-bases-in-motif "
 
         run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog \
             --verbose \

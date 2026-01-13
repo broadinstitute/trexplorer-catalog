@@ -22,7 +22,8 @@ df = select_loci(df,
     min_repeats_in_reference=2,
     min_adjusted_motif_purity=0.2,
     adjust_motifs_to_maximize_purity=True,
-    drop_duplicates=True)
+    drop_duplicates=True,
+    keep_only_motifs_with_ACGT_bases=True)
 
 
 output_filename_prefix = "Danzi_2025.adotto" 
