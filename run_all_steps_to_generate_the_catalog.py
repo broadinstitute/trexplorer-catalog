@@ -149,6 +149,7 @@ source_catalogs_in_order = [
     NS(name="TRExplorerV2:Annear2021",                      merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Annear_2021.loci_to_include_in_catalog.bed.gz"),
     NS(name="TRExplorerV2:Gymrek2016",                      merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Gymrek_2016_eSTRs.tandem_repeats.bed.gz"),
     NS(name="TRExplorerV2:Hause2016",                       merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Hause_2016_cancer_MSI_loci.bed.gz"),
+    NS(name="TRExplorerV2:VamosV3",                         merge="v2b", url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/vamosGenomicTR_v3.0.loci_to_include_in_catalog.bed.gz"),    
 ]
 
 source_catalog_paths = {}
