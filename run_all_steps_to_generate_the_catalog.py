@@ -573,6 +573,9 @@ EOF
 
     run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {annotated_catalog_path}", step_number=44)
 
+    # Print source statistics table
+    run(f"python3 {base_dir}/scripts/generate_catalog_sources_stats_table.py {release_draft_folder}/{os.path.basename(annotated_catalog_path)}", step_number=45)
+
     # report hours, minutes, seconds relative to script_start_time
     diff = time.time() - script_start_time
     print(f"Done generating {output_prefix} catalog. Took {diff//3600:.0f}h, {(diff%3600)//60:.0f}m, {diff%60:.0f}s")
@@ -593,7 +596,7 @@ EOF
         comparison_catalog_paths[catalog_name] = os.path.abspath(os.path.basename(url))
 
     path_after_conversion = comparison_catalog_paths["GangSTR_v17"].replace(".bed.gz", ".json.gz")
-    run(f"python3 -u -m str_analysis.convert_gangstr_spec_to_expansion_hunter_catalog --verbose {comparison_catalog_paths['GangSTR_v17']} -o {path_after_conversion}", step_number=45)
+    run(f"python3 -u -m str_analysis.convert_gangstr_spec_to_expansion_hunter_catalog --verbose {comparison_catalog_paths['GangSTR_v17']} -o {path_after_conversion}", step_number=46)
     comparison_catalog_paths["GangSTR_v17"] = path_after_conversion
 
     # compare catalog to other catalogs
@@ -611,9 +614,9 @@ EOF
             --max-motif-size {max_motif_size} \
             --output-path {filtered_comparison_catalog_path} \
             --verbose \
-            {path}""", step_number=46)
+            {path}""", step_number=47)
 
-        run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {filtered_comparison_catalog_path}", step_number=47)
+        run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {filtered_comparison_catalog_path}", step_number=48)
 
         run(f"""python3 -u -m str_analysis.merge_loci \
             --output-prefix {catalog_name} \
@@ -622,7 +625,7 @@ EOF
             --verbose \
             --write-merge-stats-tsv \
             {annotated_catalog_path} \
-            {filtered_comparison_catalog_path}""", step_number=48)
+            {filtered_comparison_catalog_path}""", step_number=49)
 
     diff = time.time() - start_time
     print(f"Done with comparisons. Took {diff//3600:.0f}h, {(diff%3600)//60:.0f}m, {diff%60:.0f}s")
