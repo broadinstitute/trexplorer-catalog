@@ -17,6 +17,7 @@ import pandas as pd
 import pyfaidx
 
 from str_analysis.utils.find_motif_utils import adjust_motif_to_maximize_purity_in_interval
+from str_analysis.utils.find_repeat_unit import find_repeat_unit_without_allowing_interruptions
 
 DEFAULT_REFERENCE_GENOME_PATH = "~/hg38.fa"
 
@@ -26,6 +27,20 @@ FILTER_MOTIF_EMPTY = "Motif is empty"
 FILTER_REPEAT_COUNT_TOO_LOW = "Repeat count too low"
 FILTER_PURITY_CALCULATION_ERROR = "Error calculating purity"
 FILTER_PURITY_TOO_LOW = "Purity too low"
+
+
+def simplify_motif(motif):
+    """Simplifies a motif by finding its minimal repeat unit.
+
+    Args:
+        motif: The motif sequence to simplify (e.g., "CAGCAG" -> "CAG").
+
+    Returns:
+        The simplified motif string representing the minimal repeat unit.
+    """
+    simplified_motif, _, _ = find_repeat_unit_without_allowing_interruptions(
+        motif, allow_partial_repeats=False)
+    return simplified_motif
 
 
 def does_locus_pass_filters(chrom, start_0based, end_1based, motif, reference_genome_path=DEFAULT_REFERENCE_GENOME_PATH,
@@ -239,6 +254,16 @@ def select_loci(
         df = compute_adjusted_motif_columns(df, reference_genome_path=reference_genome_path)
         df["motif"] = df["adjusted_motif"]
 
+        if min_motif_size > 1:
+            # simplify motif and check if it is now smaller than min_motif_size
+            before_filter = len(df)
+            df["simplified_motif"] = df["motif"].apply(simplify_motif)
+            
+            df = df[df["simplified_motif"].str.len() >= min_motif_size].copy()
+            if len(df) != before_filter:
+                print(f"After simplifying the motif and filtering to motif size >= {min_motif_size}: kept {len(df):,d} out of {before_filter:,d} ({len(df)/before_filter:.1%}) loci - discarded {before_filter - len(df):,d} out of {before_filter:,d} ({(before_filter - len(df))/before_filter:.1%})")
+
+        
     if min_adjusted_motif_purity is not None:
         nan_purity_count = df["adjusted_motif_purity"].isna().sum()
         if nan_purity_count > 0:
