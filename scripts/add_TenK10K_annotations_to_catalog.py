@@ -131,7 +131,7 @@ def main():
                     annotated_locus_counter += 1
                 if i > 0:
                     f2.write(", ")
-                f2.write(json.dumps(record, use_decimal=True, indent=4))
+                f2.write(json.dumps(record, use_decimal=True, ignore_nan=True, indent=4))
             f2.write("]")
 
     print(f"Annotated {annotated_locus_counter:,d} out of {input_locus_counter:,d} loci "
