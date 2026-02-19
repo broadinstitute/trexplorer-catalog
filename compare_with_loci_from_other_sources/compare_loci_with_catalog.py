@@ -672,7 +672,7 @@ def print_stats(args, main_catalog_loci, df, new_catalog_name, reference_fasta, 
         plt.title(f"Does {args.catalog_name.replace('_', ' ')} capture TR loci ({plot_label} motifs) from {new_catalog_name}?", pad=10)
         plt.xlabel("# of TR loci")
 
-        plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
+        plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,g}".format(x)))
 
         # shift the plot to the right by 10% of the width of the plot
         plt.gca().set_position([0.22, 0.1, 0.75, 0.8])
