@@ -103,6 +103,8 @@ df["VariationClusterSizeDiff"] = df["VariationClusterSizeDiff"].apply(
     lambda x : "" if pd.isna(x) else f"+{int(x)} bp")
 
 df["TRsInRegion"] -= 1
+df["AoU1027_OE_Length"] = df["AoU1027_OE_Length"].round(2)
+df["AoU1027_OE_LengthPercentile"] = df["AoU1027_OE_LengthPercentile"].round(2)
 
 # replace "CDS" with "coding"
 df["GencodeGeneRegion"] =  df["GencodeGeneRegion"].replace("CDS", "coding")
@@ -120,10 +122,11 @@ rename_dict = {
   "GencodeGeneRegion": "Gene Region",
   "HPRC256_Stdev": "Polymorphism (HPRC256 stdev)",
   "AoU1027_Stdev": "Polymorphism (AoU1027 stdev)",
-  "AoU1027_OE_LengthPercentile": "Constraint (O/E Length Percentile)",
   "FlanksAndLocusMappability": "Mappability",
   "VariationClusterSizeDiff": "Variation Cluster",
   "TRsInRegion": "Other TRs Nearby",
+  "AoU1027_OE_Length": "Constraint (O/E Length)",
+  "AoU1027_OE_LengthPercentile": "Constraint (O/E Length Percentile)",
 }
 
 df = df[list(rename_dict.keys())]
