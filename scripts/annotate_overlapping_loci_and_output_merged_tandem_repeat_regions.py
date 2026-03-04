@@ -2,9 +2,7 @@
 
 This script reads a JSON catalog of tandem repeat loci and:
 1. Groups overlapping loci using group_overlapping_loci
-2. Adds two annotation fields to each locus:
-   - NonOverlappingPurestLocus (0 or 1): marks the locus with highest purity in each overlap group
-   - NonOverlappingLongestLocus (0 or 1): marks the locus with longest interval in each overlap group
+2. Assigns an OverlapGroupId to each locus in a multi-locus overlap group (NULL for isolated loci)
 3. Outputs the annotated catalog as JSON
 4. Outputs merged intervals as TRGT format BED and simple BED files
 """
@@ -14,7 +12,6 @@ import collections
 import gzip
 import ijson
 import os
-import re
 import simplejson as json
 import tqdm
 
@@ -34,12 +31,6 @@ def get_motif_from_record(record):
     return motifs[0] if motifs else ""
 
 
-def get_interval_length(record):
-    """Get the length of the reference region interval."""
-    chrom, start, end = parse_interval(record["ReferenceRegion"])
-    return end - start
-
-
 def get_sort_key(record):
     """Get a sort key for deterministic ordering: (chrom, start, end, motif)."""
     chrom, start, end = parse_interval(record["ReferenceRegion"])
@@ -52,48 +43,6 @@ def get_sort_key(record):
         # Handle chrX, chrY, chrM, etc.
         chrom_sort = (1, chrom_num)
     return (chrom_sort, start, end, motif)
-
-
-def select_purest_locus(loci):
-    """Select the locus with highest purity, using tie-breakers.
-
-    Selection criteria (in order):
-    1. Highest ReferenceRepeatPurity
-    2. Longest interval (end - start)
-    3. Smallest motif size
-    4. Smallest genomic coordinates (chrom, start, end, motif)
-    """
-    def sort_key(record):
-        purity = record.get("ReferenceRepeatPurity", 0)
-        length = get_interval_length(record)
-        motif = get_motif_from_record(record)
-        motif_size = len(motif)
-        coords = get_sort_key(record)
-        # Negate purity and length for descending sort, keep motif_size and coords ascending
-        return (-purity, -length, motif_size, coords)
-
-    return min(loci, key=sort_key)
-
-
-def select_longest_locus(loci):
-    """Select the locus with longest interval, using tie-breakers.
-
-    Selection criteria (in order):
-    1. Longest interval (end - start)
-    2. Highest ReferenceRepeatPurity
-    3. Smallest motif size
-    4. Smallest genomic coordinates (chrom, start, end, motif)
-    """
-    def sort_key(record):
-        length = get_interval_length(record)
-        purity = record.get("ReferenceRepeatPurity", 0)
-        motif = get_motif_from_record(record)
-        motif_size = len(motif)
-        coords = get_sort_key(record)
-        # Negate length and purity for descending sort, keep motif_size and coords ascending
-        return (-length, -purity, motif_size, coords)
-
-    return min(loci, key=sort_key)
 
 
 def compute_merged_interval(loci):
@@ -152,8 +101,8 @@ def main():
     # Set default output paths
     if not args.output_catalog_json_path:
         args.output_catalog_json_path = args.catalog_json_path.replace(
-            ".json.gz", ".with_non_overlapping_annotations.json.gz"
-        ).replace(".json", ".with_non_overlapping_annotations.json")
+            ".json.gz", ".with_overlap_group_ids.json.gz"
+        ).replace(".json", ".with_overlap_group_ids.json")
         if not args.output_catalog_json_path.endswith(".gz"):
             args.output_catalog_json_path += ".gz"
 
@@ -167,12 +116,11 @@ def main():
             ".json.gz", ".merged_regions.bed"
         ).replace(".json", ".merged_regions.bed")
 
-    # First pass: group overlapping loci and determine winners
+    # First pass: group overlapping loci and assign group IDs
     print(f"First pass: grouping overlapping loci from {args.catalog_json_path}")
 
-    # Store which locus IDs are winners for each annotation
-    purest_locus_ids = set()
-    longest_locus_ids = set()
+    # Map locus ID -> overlap group ID (only for multi-locus groups)
+    locus_id_to_group_id = {}
 
     # Store merged interval info for BED output
     # Each entry: (chrom, start, end, locus_ids, motifs)
@@ -182,6 +130,7 @@ def main():
     total_loci = 0
     single_locus_groups = 0
     multi_locus_groups = 0
+    next_group_id = 1
     max_group_size = 0
     group_size_histogram = collections.Counter()
 
@@ -191,32 +140,27 @@ def main():
         if args.show_progress_bar:
             iterator = tqdm.tqdm(iterator, unit=" records", unit_scale=True, desc="Pass 1")
 
-        for group in group_overlapping_loci(iterator, only_group_loci_with_similar_motifs=False):
+        for group in group_overlapping_loci(iterator, only_group_loci_with_similar_motifs=False, min_overlap_size=1):
             group_size = len(group)
             total_loci += group_size
             group_size_histogram[group_size] += 1
             max_group_size = max(max_group_size, group_size)
 
             if group_size == 1:
-                # Single locus: mark as both purest and longest
                 single_locus_groups += 1
                 locus = group[0]
-                purest_locus_ids.add(locus["LocusId"])
-                longest_locus_ids.add(locus["LocusId"])
 
                 # Store interval info
                 chrom, start, end = parse_interval(locus["ReferenceRegion"])
                 motif = get_motif_from_record(locus)
                 merged_intervals.append((chrom, start, end, [locus["LocusId"]], [motif] if motif else []))
             else:
-                # Multiple overlapping loci
                 multi_locus_groups += 1
+                group_id = next_group_id
+                next_group_id += 1
 
-                # Select winners
-                purest = select_purest_locus(group)
-                longest = select_longest_locus(group)
-                purest_locus_ids.add(purest["LocusId"])
-                longest_locus_ids.add(longest["LocusId"])
+                for locus in group:
+                    locus_id_to_group_id[locus["LocusId"]] = group_id
 
                 # Compute merged interval
                 chrom, start, end = compute_merged_interval(group)
@@ -246,23 +190,14 @@ def main():
             if args.show_progress_bar:
                 iterator = tqdm.tqdm(iterator, unit=" records", unit_scale=True, desc="Pass 2")
 
-            annotated_purest_count = 0
-            annotated_longest_count = 0
+            annotated_count = 0
 
             f2.write("[")
             for i, record in enumerate(iterator):
-                locus_id = record["LocusId"]
-
-                # Add annotations
-                is_purest = 1 if locus_id in purest_locus_ids else 0
-                is_longest = 1 if locus_id in longest_locus_ids else 0
-                record["NonOverlappingPurestLocus"] = is_purest
-                record["NonOverlappingLongestLocus"] = is_longest
-
-                if is_purest:
-                    annotated_purest_count += 1
-                if is_longest:
-                    annotated_longest_count += 1
+                group_id = locus_id_to_group_id.get(record["LocusId"])
+                if group_id is not None:
+                    record["OverlapGroupId"] = group_id
+                    annotated_count += 1
 
                 if i > 0:
                     f2.write(", ")
@@ -271,8 +206,7 @@ def main():
             f2.write("]")
 
     print(f"Annotated {total_loci:,d} loci")
-    print(f"  - {annotated_purest_count:,d} loci marked as NonOverlappingPurestLocus=1")
-    print(f"  - {annotated_longest_count:,d} loci marked as NonOverlappingLongestLocus=1")
+    print(f"  - {annotated_count:,d} loci assigned an OverlapGroupId ({multi_locus_groups:,d} groups)")
     print(f"Wrote annotated catalog to {args.output_catalog_json_path}")
 
     # Write TRGT format BED file

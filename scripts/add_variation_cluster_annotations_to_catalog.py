@@ -2,6 +2,7 @@
 
 This script reads a variation clusters TSV file and adds the following annotations to the catalog:
 - VariationCluster: The genomic interval of the variation cluster (if offsets are non-zero)
+- VariationClusterId: Comma-separated locus IDs of all loci in the same variation cluster (if offsets are non-zero)
 - VariationClusterSizeDiff: Sum of start and end offsets (if offsets are non-zero)
 - VariationClusterFilterReason: "DEPTH" or "EXTENSION" if the locus was filtered from variation clusters
 """
@@ -67,6 +68,7 @@ def main():
     locus_id_to_variation_cluster_interval = {}
     locus_id_to_variation_cluster_size_diff = {}
     locus_id_to_filter_reason = {}
+    vc_region_to_locus_ids = collections.defaultdict(list)
 
     # Counters for statistics
     size_diff_histogram = collections.Counter()
@@ -123,10 +125,18 @@ def main():
                     size_diff = int(abs(start_offset) + abs(end_offset))
                     locus_id_to_variation_cluster_interval[locus_id] = vc_region
                     locus_id_to_variation_cluster_size_diff[locus_id] = size_diff
+                    vc_region_to_locus_ids[vc_region].append(locus_id)
                     size_diff_histogram[size_diff] += 1
                     loci_with_variation_cluster += 1
                 else:
                     loci_with_zero_offset += 1
+
+    # Build locus_id -> variation cluster ID (comma-joined locus IDs sharing the same vc_region)
+    locus_id_to_variation_cluster_id = {}
+    for vc_region, locus_ids in vc_region_to_locus_ids.items():
+        variation_cluster_id = ",".join(locus_ids)
+        for locus_id in locus_ids:
+            locus_id_to_variation_cluster_id[locus_id] = variation_cluster_id
 
     if args.verbose:
         print(f"Parsed {input_locus_counter:,d} loci from {args.variation_clusters_tsv_path}")
@@ -155,6 +165,7 @@ def main():
 
                 if locus_id in locus_id_to_variation_cluster_interval:
                     record["VariationCluster"] = locus_id_to_variation_cluster_interval[locus_id]
+                    record["VariationClusterId"] = locus_id_to_variation_cluster_id[locus_id]
                     record["VariationClusterSizeDiff"] = locus_id_to_variation_cluster_size_diff[locus_id]
                     locus_with_vc_annotation_counter += 1
                 elif locus_id in locus_id_to_filter_reason:
