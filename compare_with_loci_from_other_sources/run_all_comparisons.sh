@@ -28,7 +28,7 @@ for d in \
 
     set -x
     ls run.sh
-    grep gsutil run.sh
+    grep "gcloud storage" run.sh
 
     ./run.sh 2>&1 | tee run.sh.log
     

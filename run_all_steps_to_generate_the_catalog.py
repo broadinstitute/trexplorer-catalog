@@ -94,7 +94,7 @@ for key in "hg38_reference_fasta", "gencode_gtf", "variation_clusters_tsv", "ten
         parser.error(f"{key} file not found {path}")
 
     if path.startswith("gs://"):
-        run(f"gsutil -m cp -n {path} .")
+        run(f"gcloud storage cp -n {path} .")
         path = os.path.basename(path)
 
     setattr(args, key, os.path.abspath(path))
@@ -458,9 +458,9 @@ EOF
     # annotate overlapping loci and output merged tandem repeat regions
     run(f"""python3 {base_dir}/scripts/annotate_overlapping_loci_and_output_merged_tandem_repeat_regions.py \
         --verbose \
-        -o {annotated_catalog_path}.with_non_overlapping_annotations.json.gz \
+        -o {annotated_catalog_path}.with_overlap_annotations.json.gz \
         {annotated_catalog_path}""", step_number=23)
-    run(f"mv {annotated_catalog_path}.with_non_overlapping_annotations.json.gz {annotated_catalog_path}", step_number=24)
+    run(f"mv {annotated_catalog_path}.with_overlap_annotations.json.gz {annotated_catalog_path}", step_number=24)
 
     # add allele frequencies to the catalog
     run(f"""python3 -u {base_dir}/scripts/add_allele_frequency_annotations.py \
