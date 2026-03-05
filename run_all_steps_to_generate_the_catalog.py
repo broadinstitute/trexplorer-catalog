@@ -535,7 +535,7 @@ core_columns = [
     'NumRepeatsInReference', 'ReferenceRepeatPurity', 
     'AlleleFrequenciesFromIllumina174k', 'StdevFromIllumina174k',
     'AlleleFrequenciesFromT2TAssemblies', 'StdevFromT2TAssemblies',
-    'VariationCluster', 'VariationClusterSizeDiff',
+    'VariationCluster', 'VariationClusterMotifs', 'VariationClusterSizeDiff',
     #'AlleleFrequenciesFromHPRC256', 'StdevFromHPRC256',
     'StdevFromAoU1027', 'MedianAlleleFromAoU1027', 'MaxAlleleFromAoU1027', 'NumUniqueAllelesFromAoU1027',
 ]

@@ -3,6 +3,7 @@
 This script reads a variation clusters TSV file and adds the following annotations to the catalog:
 - VariationCluster: The genomic interval of the variation cluster (if offsets are non-zero)
 - VariationClusterId: Comma-separated locus IDs of all loci in the same variation cluster (if offsets are non-zero)
+- VariationClusterMotifs: Comma-separated unique motifs from all loci in the same variation cluster (if offsets are non-zero)
 - VariationClusterSizeDiff: Sum of start and end offsets (if offsets are non-zero)
 - VariationClusterFilterReason: "DEPTH" or "EXTENSION" if the locus was filtered from variation clusters
 """
@@ -69,6 +70,7 @@ def main():
     locus_id_to_variation_cluster_size_diff = {}
     locus_id_to_filter_reason = {}
     vc_region_to_locus_ids = collections.defaultdict(list)
+    vc_region_to_motifs = collections.defaultdict(list)
 
     # Counters for statistics
     size_diff_histogram = collections.Counter()
@@ -106,6 +108,7 @@ def main():
             # Extract locus ID from region_info
             info_dict = parse_info_field(region_info)
             locus_id = info_dict["ID"]
+            motifs = info_dict.get("MOTIFS", "")
 
             # Check if this locus was filtered
             if vc_end_offset in ("DEPTH", "EXTENSION"):
@@ -126,6 +129,7 @@ def main():
                     locus_id_to_variation_cluster_interval[locus_id] = vc_region
                     locus_id_to_variation_cluster_size_diff[locus_id] = size_diff
                     vc_region_to_locus_ids[vc_region].append(locus_id)
+                    vc_region_to_motifs[vc_region].append(motifs)
                     size_diff_histogram[size_diff] += 1
                     loci_with_variation_cluster += 1
                 else:
@@ -133,10 +137,21 @@ def main():
 
     # Build locus_id -> variation cluster ID (comma-joined locus IDs sharing the same vc_region)
     locus_id_to_variation_cluster_id = {}
+    locus_id_to_variation_cluster_motifs = {}
     for vc_region, locus_ids in vc_region_to_locus_ids.items():
         variation_cluster_id = ",".join(locus_ids)
+        # Get unique motifs while preserving order
+        seen_motifs = set()
+        unique_motifs = []
+        for motifs in vc_region_to_motifs[vc_region]:
+            for m in motifs.split(","):
+                if m and m not in seen_motifs:
+                    seen_motifs.add(m)
+                    unique_motifs.append(m)
+        variation_cluster_motifs = ",".join(unique_motifs)
         for locus_id in locus_ids:
             locus_id_to_variation_cluster_id[locus_id] = variation_cluster_id
+            locus_id_to_variation_cluster_motifs[locus_id] = variation_cluster_motifs
 
     if args.verbose:
         print(f"Parsed {input_locus_counter:,d} loci from {args.variation_clusters_tsv_path}")
@@ -166,6 +181,7 @@ def main():
                 if locus_id in locus_id_to_variation_cluster_interval:
                     record["VariationCluster"] = locus_id_to_variation_cluster_interval[locus_id]
                     record["VariationClusterId"] = locus_id_to_variation_cluster_id[locus_id]
+                    record["VariationClusterMotifs"] = locus_id_to_variation_cluster_motifs[locus_id]
                     record["VariationClusterSizeDiff"] = locus_id_to_variation_cluster_size_diff[locus_id]
                     locus_with_vc_annotation_counter += 1
                 elif locus_id in locus_id_to_filter_reason:
