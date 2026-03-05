@@ -2,17 +2,24 @@
 
 ### Tandem Repeat Catalog & Variation Clusters
 
-This repo contains a genome-wide TR catalog with 4.9 million loci.  
-
-It stratifies TRs into 2 groups:
+This repo contains a genome-wide TR catalog that stratifies TRs into 2 groups:
 1) isolated TRs suitable for traditional repeat copy number analysis using short-read or long-read data
 2) TRs embedded within wider polymorphic regions (ie. variation clusters) that are best studied through sequence-level analysis
 
-[Release v1.0](https://github.com/broadinstitute/tandem-repeat-catalogs/releases/tag/v1.0) is available for download, and is described in:
+TRExplorer catalog [release v2.0](https://github.com/broadinstitute/tandem-repeat-catalogs/releases/tag/v2.0) is now available. 
+
+The [http://trexplorer.broadinstitute.org](http://trexplorer.broadinstitute.org) companion portal supports interactive exploration, visualization, filtering, and export of the catalog.
+
+See the `Using the TRExplorer Catalog` section of the manuscript below for practical considerations on how to use these resources.
+
+----
+
+### Publication
 
 <b>Defining a tandem repeat catalog and variation clusters for genome-wide analyses and population databases</b><br />
 Ben Weisburd, Egor Dolzhenko, Mark F. Bennett, Matt C. Danzi, Adam English, Laurel Hiatt, Hope Tanudisastro, Nehir Edibe Kurtas, Helyaneh Ziaei Jam, Harrison Brand, Fritz J. Sedlazeck, Melissa Gymrek, Harriet Dashnow, Michael A. Eberle, Heidi L. Rehm
-bioRxiv 2024.10.04.615514; doi: https://doi.org/10.1101/2024.10.04.615514
+
+[bioRxiv 2024.10.04.615514v5](https://www.biorxiv.org/content/10.1101/2024.10.04.615514v5)
 
 ----
 
@@ -29,7 +36,13 @@ indicating that a repeat of the `AT` motif occurs between positions 10 and 19 (i
 A genome-wide catalog would contain such entries for all repeat regions of interest found anywhere in the genome. 
 
 
-### Catalog Construction
+----
+
+### v2.0 Catalog Construction
+
+See the [release notes](https://github.com/broadinstitute/tandem-repeat-catalogs/releases/tag/v2.0) 
+
+### v1.0 Catalog Construction
 
 The genome-wide TR catalog was created by combining 4 source catalogs in order:
 1) [Known disease-associated loci](https://github.com/broadinstitute/str-analysis/blob/69dd90ecbc1dcbb23d5ca84ab4022850a283114f/str_analysis/variant_catalogs/variant_catalog_with_offtargets.GRCh37.json)
@@ -47,7 +60,7 @@ The numbers (and %) of loci in the combined catalog that were added from each of
 ```
 The merging procedure involved taking all loci from the 1st catalog, then all non-duplicate loci from the next catalog, then from the third catalog and so on, in the order listed above. A locus was considered a duplicate if it overlapped a previously-added locus by at least 66% and the two loci had the same motif after cyclic shift and/or reverse complement (ie. CAG, AGC, GCA, CTG, TGC, GCT were considered to be the same motif). 
 
-### Catalog Stats
+### v1.0 Catalog Stats
 
 The following catalog stats for v1.0 were computed using [str_analysis/compute_catalog_stats.py](https://github.com/broadinstitute/str-analysis/blob/main/str_analysis/compute_catalog_stats.py):
 
