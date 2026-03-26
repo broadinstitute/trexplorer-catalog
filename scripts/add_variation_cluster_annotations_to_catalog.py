@@ -74,6 +74,7 @@ def main():
 
     # Counters for statistics
     size_diff_histogram = collections.Counter()
+    all_tsv_locus_ids = set()
     input_locus_counter = 0
     loci_with_variation_cluster = 0
     loci_with_filter_reason = 0
@@ -109,6 +110,7 @@ def main():
             info_dict = parse_info_field(region_info)
             locus_id = info_dict["ID"]
             motifs = info_dict.get("MOTIFS", "")
+            all_tsv_locus_ids.add(locus_id)
 
             # Check if this locus was filtered
             if vc_end_offset in ("DEPTH", "EXTENSION"):
@@ -168,6 +170,7 @@ def main():
             locus_with_vc_annotation_counter = 0
             locus_with_filter_annotation_counter = 0
             locus_without_annotation_counter = 0
+            catalog_locus_ids = set()
 
             iterator = ijson.items(f, "item")
             if args.show_progress_bar:
@@ -177,6 +180,7 @@ def main():
             for i, record in enumerate(iterator):
                 locus_id = record["LocusId"]
                 input_locus_counter += 1
+                catalog_locus_ids.add(locus_id)
 
                 if locus_id in locus_id_to_variation_cluster_interval:
                     record["VariationCluster"] = locus_id_to_variation_cluster_interval[locus_id]
@@ -201,6 +205,13 @@ def main():
     print(f"  - {locus_with_filter_annotation_counter:,d} ({locus_with_filter_annotation_counter/input_locus_counter:.1%}) got VariationClusterFilterReason annotation")
     print(f"  - {locus_without_annotation_counter:,d} ({locus_without_annotation_counter/input_locus_counter:.1%}) got no variation cluster annotation")
     print(f"Wrote output to {args.output_catalog_json_path}")
+
+    # Validate that all locus IDs in the variation clusters TSV have an exact match in the catalog
+    vc_locus_ids_not_in_catalog = all_tsv_locus_ids - catalog_locus_ids
+    if vc_locus_ids_not_in_catalog:
+        raise ValueError(
+            f"{len(vc_locus_ids_not_in_catalog):,d} locus ID(s) in {args.variation_clusters_tsv_path} were not found "
+            f"in {args.catalog_json_path}. Examples: {sorted(vc_locus_ids_not_in_catalog)[:10]}")
 
     if args.generate_plot and size_diff_histogram:
         print(f"Generating VC size diff histograms")
