@@ -50,9 +50,9 @@ def main():
     p.add_argument("--catalog-name", default="TRExplorer_v1")
     p.add_argument(
         "--catalog-path",
-        #default="../results__2025-09-04/release_draft_2025-09-04/repeat_catalog_v1.hg38.1_to_1000bp_motifs.bed.gz",
+        #default="../results__2025-09-04/release_draft_2025-09-04/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.with_annotations.json.gz",
         #default="../results__2025-11-03/release_draft_2025-11-03/repeat_catalog_v2.hg38.1_to_1000bp_motifs.bed.gz",
-        default="../results__2025-12-08/release_draft_2025-12-08/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.EH.with_annotations.json.gz",
+        default="../results__2026-01-12/release_draft_2026-01-12/TRExplorer.repeat_catalog_v2.hg38.1_to_1000bp_motifs.EH.with_annotations.json.gz",
         help="Catalog path")
     args = p.parse_args()
 
@@ -137,7 +137,7 @@ def main():
     plt.gca().set_position([0.15, 0.15, 0.8, 0.8])
     plt.gca().xaxis.labelpad = 15
     plt.gca().yaxis.labelpad = 15
-    plt.gca().set_ylim(0, 2000000)
+    plt.gca().set_ylim(0, 4000000)
     plt.gca().grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray")
     plt.gca().tick_params(axis='both', which='major', labelsize=14)
     plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
@@ -159,7 +159,7 @@ def main():
     plt.gca().yaxis.labelpad = 15
     #plt.gca().set_yscale("log")
     #plt.gca().set_yticks([1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000])
-    plt.gca().set_ylim(0, 2000000)
+    plt.gca().set_ylim(0, 4000000)
     plt.gca().grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray")
     plt.gca().tick_params(axis='both', which='major', labelsize=14)
     plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
@@ -182,7 +182,7 @@ def main():
     plt.gca().yaxis.labelpad = 15
     #plt.gca().set_yscale("log")
     #plt.gca().set_yticks([1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000])
-    plt.gca().set_ylim(0, 2000000)
+    plt.gca().set_ylim(0, 4000000)
     plt.gca().grid(axis="y", linestyle="-", linewidth=0.5, color="lightgray")
     plt.gca().tick_params(axis='both', which='major', labelsize=14)    
     plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: "{:,.0f}".format(x)))
@@ -190,21 +190,19 @@ def main():
     print(f"Wrote gene region distribution to {catalog_name}.mane_gene_region_distribution.png")
     plt.close()
 
-    print("Motif size distribution:")
-    for key, count in motif_size_distribution.items():
-        print(f"{count:10,d} ({count/sum(motif_size_distribution.values())*100:6.1f}%) {key}")
-    print(f"Total number of TRs: {sum(motif_size_distribution.values()):,}")
-
-
-    print("Gencode gene region distribution:")
-    for key, count in gencode_gene_region_distribution.items():
-        print(f"{count:10,d} ({count/sum(gencode_gene_region_distribution.values())*100:6.1f}%) {key}")
-    print(f"Total: {sum(gencode_gene_region_distribution.values()):,}")
-
-    print("MANE gene region distribution:")
-    for key, count in mane_gene_region_distribution.items():
-        print(f"{count:10,d} ({count/sum(mane_gene_region_distribution.values())*100:6.1f}%) {key}")
-    print(f"Total: {sum(mane_gene_region_distribution.values()):,}")
+    for label, distribution in [
+        ("Motif size distribution", motif_size_distribution),
+        ("Gencode gene region distribution", gencode_gene_region_distribution),
+        ("MANE gene region distribution", mane_gene_region_distribution),
+    ]:
+        print(f"{label}:")
+        total = sum(distribution.values())
+        for key, count in distribution.items():
+            if total > 0:
+                print(f"{count:10,d} ({count/total*100:6.1f}%) {key}")
+            else:
+                print(f"{count:10,d} {key}")
+        print(f"Total: {total:,}")
 
 if __name__ == "__main__":
     main()
