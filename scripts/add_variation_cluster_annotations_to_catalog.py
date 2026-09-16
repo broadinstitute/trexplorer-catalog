@@ -67,6 +67,7 @@ def main():
     # Order is TSV-encounter order so the comma-joined VariationClusterId is deterministic.
     vc_region_to_members = collections.defaultdict(list)
     vc_region_to_length = {}             # vc_region -> end - start, for widest-VC pick
+    vc_regions_with_nonzero_offset = set()
 
     all_tsv_locus_ids = set()
     input_locus_counter = 0
@@ -112,10 +113,11 @@ def main():
                 loci_with_filter_reason += 1
                 continue
 
-            # Parse offsets as floats, purely for the diagnostic counts below. Offset can't be used
-            # to decide cluster membership: the widest member of a real cluster spans the whole
-            # vc_region and so also has offset 0/0, same as a genuinely solo locus. Membership is
-            # decided after the loop instead, by how many loci land on the same vc_region.
+            # Parse offsets as floats. A locus's own offset can't be used to decide cluster
+            # membership on its own: the widest member of a real multi-locus cluster spans the
+            # whole vc_region and so also has offset 0/0, same as a genuinely solo locus. But it
+            # does matter for a singleton vc_region (see the filter after the loop): a lone locus
+            # whose vc_region was genuinely extended past its own original_region is still real.
             try:
                 start_offset = float(vc_start_offset) if vc_start_offset else 0.0
                 end_offset = float(vc_end_offset) if vc_end_offset else 0.0
@@ -127,6 +129,7 @@ def main():
                 loci_with_zero_offset += 1
             else:
                 loci_with_nonzero_offsets += 1
+                vc_regions_with_nonzero_offset.add(vc_region)
 
             # Record (locus_id, motifs) as a member of vc_region, and remember vc_region as a
             # candidate VC for this locus. Both directions are needed: vc_region->members to build
@@ -141,12 +144,17 @@ def main():
             orig_chrom, orig_start, orig_end = parse_interval(original_region)
             locus_id_to_original_length[locus_id] = orig_end - orig_start
 
-    # A vc_region shared by only one locus is that locus's own region, not a cluster: the widest
-    # member of a real cluster spans the whole vc_region and so also looks solo by the offset
-    # check above. So membership is decided here instead, by how many loci land on a given
-    # vc_region, and only those loci keep it as a candidate.
-    vc_region_to_members = {region: members for region, members in vc_region_to_members.items()
-                             if len(members) > 1}
+    # Keep a vc_region unless it has exactly one member whose own offset is 0/0. A vc_region shared
+    # by more than one locus is a real cluster even if its widest member's own offset is 0/0 (that
+    # member's interval spans the whole vc_region, so it looks solo by offset alone). A vc_region
+    # with only one locus is real too if that locus's own offset is non-zero: the region was
+    # genuinely extended beyond the locus's original_region, even though nothing else was merged
+    # in. Only a singleton vc_region with 0/0 offset is just that locus's own region and nothing
+    # more.
+    vc_region_to_members = {
+        region: members for region, members in vc_region_to_members.items()
+        if len(members) > 1 or region in vc_regions_with_nonzero_offset
+    }
     locus_id_to_candidate_vc_regions = {
         locus_id: [vc_region for vc_region in candidates if vc_region in vc_region_to_members]
         for locus_id, candidates in locus_id_to_candidate_vc_regions.items()

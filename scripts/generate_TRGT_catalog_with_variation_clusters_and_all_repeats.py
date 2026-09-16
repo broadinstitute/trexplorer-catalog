@@ -74,6 +74,7 @@ def main():
         parser.error("--output-bed-path must have a '.bed' suffix")
 
     vc_region_to_loci = collections.defaultdict(list)  # vc_region -> list of (locus_id, motifs)
+    vc_regions_with_nonzero_offset = set()
     filter_reason_by_locus_id = {}  # locus_id -> "DEPTH" or "EXTENSION"
 
     fopen = gzip.open if args.input_variation_clusters_tsv_path.endswith("gz") else open
@@ -90,7 +91,7 @@ def main():
                 header = fields
                 continue
 
-            region_info, _, _, vc_end_offset = fields[:4]
+            region_info, _, vc_start_offset, vc_end_offset = fields[:4]
             vc_region = fields[4] if len(fields) > 4 else ""
 
             info_dict = parse_info_field(region_info)
@@ -102,14 +103,31 @@ def main():
                 filter_reason_by_locus_id[locus_id] = vc_end_offset
                 continue
 
-            if vc_region:
-                vc_region_to_loci[vc_region].append((locus_id, info_dict.get("MOTIFS", "")))
+            try:
+                start_offset = float(vc_start_offset) if vc_start_offset else 0.0
+                end_offset = float(vc_end_offset) if vc_end_offset else 0.0
+            except ValueError:
+                print(f"WARNING: Could not parse offsets for locus {locus_id}: "
+                      f"start='{vc_start_offset}', end='{vc_end_offset}'")
+                continue
 
-    # A vc_region shared by only one locus is that locus's own region, not a cluster: the widest
-    # member of a real cluster spans the whole vc_region and so also looks like it "stands alone" by
-    # that same measure. So membership has to be decided by how many loci land on a given vc_region,
-    # not by any one row's offset from it.
-    vc_region_to_loci = {region: loci for region, loci in vc_region_to_loci.items() if len(loci) > 1}
+            if not vc_region:
+                continue
+
+            vc_region_to_loci[vc_region].append((locus_id, info_dict.get("MOTIFS", "")))
+            if start_offset != 0 or end_offset != 0:
+                vc_regions_with_nonzero_offset.add(vc_region)
+
+    # Keep a vc_region unless it has exactly one member whose own offset is 0/0. A vc_region shared
+    # by more than one locus is a real cluster even if its widest member's own offset is 0/0 (that
+    # member's interval spans the whole vc_region, so it looks solo by offset alone). A vc_region
+    # with only one locus is real too if that locus's own offset is non-zero: the region was
+    # genuinely extended beyond the locus's original_region, even though nothing else was merged in.
+    # Only a singleton vc_region with 0/0 offset is just that locus's own region and nothing more.
+    vc_region_to_loci = {
+        region: loci for region, loci in vc_region_to_loci.items()
+        if len(loci) > 1 or region in vc_regions_with_nonzero_offset
+    }
 
     print(f"Parsed TSV: {len(vc_region_to_loci):,d} variation clusters, "
           f"{len(filter_reason_by_locus_id):,d} loci flagged DEPTH or EXTENSION")
