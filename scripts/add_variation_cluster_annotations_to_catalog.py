@@ -14,6 +14,10 @@ Annotations added to each catalog record:
 - VariationClusterMotifs: Comma-separated unique motifs across those members
 - VariationClusterSizeDiff: (chosen vc_region size) - (locus original_region size)
 - VariationClusterFilterReason: "DEPTH" or "EXTENSION" if the locus was filtered from variation clusters
+
+This script owns those five fields: each run clears them first and then writes only the ones that
+apply, so running it again over an already-annotated catalog replaces the annotations rather than
+layering onto them.
 """
 
 import argparse
@@ -25,6 +29,18 @@ import simplejson as json
 import tqdm
 
 from str_analysis.utils.misc_utils import parse_interval
+
+
+# Every field this script writes. A locus that no longer belongs to a variation cluster, or that
+# stops being filtered, must lose the values a previous run gave it, so these are cleared per record
+# before the new ones are written.
+VARIATION_CLUSTER_FIELDS = (
+    "VariationCluster",
+    "VariationClusterId",
+    "VariationClusterMotifs",
+    "VariationClusterSizeDiff",
+    "VariationClusterFilterReason",
+)
 
 
 def parse_info_field(info_field):
@@ -224,6 +240,7 @@ def main():
             locus_with_vc_annotation_counter = 0
             locus_with_filter_annotation_counter = 0
             locus_without_annotation_counter = 0
+            locus_with_previous_annotation_counter = 0
             catalog_locus_ids = set()
 
             iterator = ijson.items(f, "item")
@@ -235,6 +252,13 @@ def main():
                 locus_id = record["LocusId"]
                 input_locus_counter += 1
                 catalog_locus_ids.add(locus_id)
+
+                # Pop every field before testing any of them. A generator inside any() would
+                # short-circuit on the first field that was present and leave the rest of a stale
+                # annotation behind.
+                previous_values = [record.pop(field, None) for field in VARIATION_CLUSTER_FIELDS]
+                if any(value is not None for value in previous_values):
+                    locus_with_previous_annotation_counter += 1
 
                 if locus_id in locus_id_to_variation_cluster_interval:
                     record["VariationCluster"] = locus_id_to_variation_cluster_interval[locus_id]
@@ -258,6 +282,9 @@ def main():
     print(f"  - {locus_with_vc_annotation_counter:,d} ({locus_with_vc_annotation_counter/input_locus_counter:.1%}) got VariationCluster annotation")
     print(f"  - {locus_with_filter_annotation_counter:,d} ({locus_with_filter_annotation_counter/input_locus_counter:.1%}) got VariationClusterFilterReason annotation")
     print(f"  - {locus_without_annotation_counter:,d} ({locus_without_annotation_counter/input_locus_counter:.1%}) got no variation cluster annotation")
+    if locus_with_previous_annotation_counter > 0:
+        print(f"  - {locus_with_previous_annotation_counter:,d} already carried variation cluster annotations from an "
+              f"earlier run, which were discarded and recomputed")
     print(f"Wrote output to {args.output_catalog_json_path}")
 
     # Validate that all locus IDs in the variation clusters TSV have an exact match in the catalog.
