@@ -109,7 +109,8 @@ def main():
         annotations = {}
 
         # String fields
-        annotations["HPRC256_AlleleHistogram"] = row["allele_size_histogram"]
+        if pd.notna(row["allele_size_histogram"]):
+            annotations["HPRC256_AlleleHistogram"] = row["allele_size_histogram"]
         biallelic_histogram = row.get("biallelic_histogram")
         if pd.notna(biallelic_histogram):
             annotations["HPRC256_BiallelicHistogram"] = biallelic_histogram
@@ -177,7 +178,7 @@ def main():
                     locus_that_lost_annotation_counter += 1
                 if i > 0:
                     f2.write(", ")
-                f2.write(json.dumps(record, use_decimal=True, indent=4))
+                f2.write(json.dumps(record, use_decimal=True, ignore_nan=True, indent=4))
             f2.write("]")
 
     print(f"Annotated {annotated_locus_counter:,d} out of {input_locus_counter:,d} loci "
