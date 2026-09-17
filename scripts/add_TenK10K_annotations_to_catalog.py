@@ -2,6 +2,10 @@
 
 TenK10K is a large short-read sequencing cohort used to compute allele frequency statistics
 at tandem repeat loci. This script annotates catalog records with these population-level statistics.
+
+This script owns every TenK10K_* field: each run clears them first and then writes only the
+ones that apply, so running it again over an already-annotated catalog replaces the annotations
+rather than layering onto them.
 """
 
 import argparse
@@ -15,8 +19,28 @@ import tqdm
 
 from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 from str_analysis.utils.file_utils import download_local_copy
+from catalog_annotation_utils import (clear_previous_annotations, find_unlisted_annotation_fields,
+                                      print_annotation_replacement_summary)
 
 DEFAULT_TSV_PATH = "gs://tandem-repeat-catalog/v2.0/tenk10k_str_mt_rows.reformatted.tsv.gz"
+
+# Every field this script writes. A locus that drops out of the TSV, or whose row no longer has a
+# value for one of the optional fields, must lose whatever a previous run gave it, so these are
+# cleared per record before the new ones are written.
+TENK10K_FIELDS = (
+    "TenK10K_AlleleHistogram",
+    "TenK10K_BiallelicHistogram",
+    "TenK10K_MinAllele",
+    "TenK10K_ModeAllele",
+    "TenK10K_MaxAllele",
+    "TenK10K_UniqueAlleleLengths",
+    "TenK10K_NumCalledAlleles",
+    "TenK10K_Stdev",
+    "TenK10K_Median",
+    "TenK10K_99thPercentile",
+    "TenK10K_StdevRankByMotif",
+    "TenK10K_StdevRankTotalNumberByMotif",
+)
 
 
 def main():
@@ -119,8 +143,14 @@ def main():
 
     print(f"Built annotation lookup with {len(annotation_lookup):,d} entries")
 
+    unlisted_fields = find_unlisted_annotation_fields(annotation_lookup, TENK10K_FIELDS)
+    if unlisted_fields:
+        parser.error(f"TENK10K_FIELDS doesn't list {sorted(unlisted_fields)}, so re-running this script "
+                     f"over an already-annotated catalog would leave those fields stale")
+
     # Annotate the catalog
     input_locus_counter = annotated_locus_counter = 0
+    locus_with_previous_annotation_counter = locus_that_lost_annotation_counter = 0
     print(f"Adding TenK10K annotations to {args.catalog_json_path}")
     fopen = gzip.open if args.catalog_json_path.endswith("gz") else open
     with fopen(args.catalog_json_path, "rt") as f:
@@ -134,9 +164,16 @@ def main():
             for i, record in enumerate(iterator):
                 locus_id = record["LocusId"]
                 input_locus_counter += 1
+
+                had_previous_annotation = clear_previous_annotations(record, TENK10K_FIELDS)
+                if had_previous_annotation:
+                    locus_with_previous_annotation_counter += 1
+
                 if locus_id in annotation_lookup:
                     record.update(annotation_lookup[locus_id])
                     annotated_locus_counter += 1
+                elif had_previous_annotation:
+                    locus_that_lost_annotation_counter += 1
                 if i > 0:
                     f2.write(", ")
                 f2.write(json.dumps(record, use_decimal=True, ignore_nan=True, indent=4))
@@ -144,6 +181,9 @@ def main():
 
     print(f"Annotated {annotated_locus_counter:,d} out of {input_locus_counter:,d} loci "
           f"({annotated_locus_counter/max(1, input_locus_counter):.1%})")
+    print_annotation_replacement_summary("TenK10K", f"are no longer in {args.tsv_path}",
+                                         locus_with_previous_annotation_counter,
+                                         locus_that_lost_annotation_counter)
     print(f"Wrote annotated catalog to {args.output_catalog_json_path}")
 
 

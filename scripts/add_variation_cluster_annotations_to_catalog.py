@@ -29,6 +29,7 @@ import simplejson as json
 import tqdm
 
 from str_analysis.utils.misc_utils import parse_interval
+from catalog_annotation_utils import clear_previous_annotations, print_annotation_replacement_summary
 
 
 # Every field this script writes. A locus that no longer belongs to a variation cluster, or that
@@ -241,6 +242,7 @@ def main():
             locus_with_filter_annotation_counter = 0
             locus_without_annotation_counter = 0
             locus_with_previous_annotation_counter = 0
+            locus_that_lost_annotation_counter = 0
             catalog_locus_ids = set()
 
             iterator = ijson.items(f, "item")
@@ -253,11 +255,8 @@ def main():
                 input_locus_counter += 1
                 catalog_locus_ids.add(locus_id)
 
-                # Pop every field before testing any of them. A generator inside any() would
-                # short-circuit on the first field that was present and leave the rest of a stale
-                # annotation behind.
-                previous_values = [record.pop(field, None) for field in VARIATION_CLUSTER_FIELDS]
-                if any(value is not None for value in previous_values):
+                had_previous_annotation = clear_previous_annotations(record, VARIATION_CLUSTER_FIELDS)
+                if had_previous_annotation:
                     locus_with_previous_annotation_counter += 1
 
                 if locus_id in locus_id_to_variation_cluster_interval:
@@ -271,6 +270,8 @@ def main():
                     locus_with_filter_annotation_counter += 1
                 else:
                     locus_without_annotation_counter += 1
+                    if had_previous_annotation:
+                        locus_that_lost_annotation_counter += 1
 
                 if i > 0:
                     f2.write(", ")
@@ -282,9 +283,10 @@ def main():
     print(f"  - {locus_with_vc_annotation_counter:,d} ({locus_with_vc_annotation_counter/input_locus_counter:.1%}) got VariationCluster annotation")
     print(f"  - {locus_with_filter_annotation_counter:,d} ({locus_with_filter_annotation_counter/input_locus_counter:.1%}) got VariationClusterFilterReason annotation")
     print(f"  - {locus_without_annotation_counter:,d} ({locus_without_annotation_counter/input_locus_counter:.1%}) got no variation cluster annotation")
-    if locus_with_previous_annotation_counter > 0:
-        print(f"  - {locus_with_previous_annotation_counter:,d} already carried variation cluster annotations from an "
-              f"earlier run, which were discarded and recomputed")
+    print_annotation_replacement_summary("variation cluster",
+                                         "no longer belong to a variation cluster and are not filtered",
+                                         locus_with_previous_annotation_counter,
+                                         locus_that_lost_annotation_counter)
     print(f"Wrote output to {args.output_catalog_json_path}")
 
     # Validate that all locus IDs in the variation clusters TSV have an exact match in the catalog.
