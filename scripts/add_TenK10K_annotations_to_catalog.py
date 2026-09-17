@@ -108,7 +108,8 @@ def main():
         annotations = {}
 
         # String fields
-        annotations["TenK10K_AlleleHistogram"] = row["allele_size_histogram"]
+        if pd.notna(row["allele_size_histogram"]):
+            annotations["TenK10K_AlleleHistogram"] = row["allele_size_histogram"]
         biallelic_histogram = row.get("biallelic_histogram")
         if pd.notna(biallelic_histogram):
             annotations["TenK10K_BiallelicHistogram"] = biallelic_histogram
