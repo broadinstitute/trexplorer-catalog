@@ -4,19 +4,22 @@ import gzip
 import json
 import os
 import re
+import requests
 import subprocess
 import time
 from types import SimpleNamespace as NS
 
-from str_analysis.utils.file_utils import file_exists, tee_stdout_and_stderr_to_log_file
-
-# install str-analysis python package
-os.system("""
-if ! python3 -m pip show str-analysis &> /dev/null
+# install str-analysis python package. This has to run before the str_analysis imports below, or a missing package
+# fails the import before it can be installed.
+if os.system("""
+if ! python3 -m pip show str-analysis > /dev/null 2>&1
 then
     python3 -m pip install --upgrade git+https://github.com/broadinstitute/str-analysis.git
 fi
-""")
+""") != 0:
+    raise RuntimeError("Failed to install the str-analysis python package")
+
+from str_analysis.utils.file_utils import file_exists, tee_stdout_and_stderr_to_log_file
 
 
 VERSION = "2.1"
@@ -64,6 +67,53 @@ ONE_BASED_BED_SUFFIXES = (".LongTR.bed.gz", ".HipSTR.bed.gz", ".GangSTR.bed.gz")
 def tabix_coordinate_flags(path):
     """Returns the tabix flags describing path's coordinate convention."""
     return "-s1 -b2 -e3" if path.endswith(ONE_BASED_BED_SUFFIXES) else "-p bed"
+
+def get_remote_file_etag(url):
+    """Returns the ETag that the server reports for url. It changes whenever the file's contents change."""
+    if url.startswith("gs://"):
+        return subprocess.run(["gcloud", "storage", "objects", "describe", url, "--format=value(etag)"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+
+    response = requests.head(url, allow_redirects=True, timeout=60)
+    response.raise_for_status()
+    if not response.headers.get("ETag"):
+        raise ValueError(f"{url} has no ETag, so there's no way to tell whether a local copy of it is up to date")
+    return response.headers["ETag"]
+
+def download_unless_local_copy_is_up_to_date(url, local_dir):
+    """Downloads url into local_dir, unless the copy already there has the file's current ETag.
+
+    The ETag of each download is saved next to it in a .etag file, which is what later runs compare against.
+
+    Args:
+        url (str): gs:// path or URL of the file
+        local_dir (str): directory to download the file into
+
+    Returns:
+        str: path of the local copy
+    """
+    local_path = os.path.join(local_dir, os.path.basename(url))
+    if args.dry_run:
+        print(f"Would download {url} to {local_path} unless the local copy is up to date")
+        return local_path
+
+    etag_path = f"{local_path}.etag"
+    remote_etag = get_remote_file_etag(url)
+    if os.path.isfile(local_path) and os.path.isfile(etag_path):
+        with open(etag_path) as f:
+            if f.read() == remote_etag:
+                print(f"Local copy of {url} is up to date: {local_path}")
+                return local_path
+
+    if url.startswith("gs://"):
+        run(f"gcloud storage cp {url} {local_path}.tmp")
+    else:
+        run(f"wget -q -O {local_path}.tmp {url}")
+    run(f"mv {local_path}.tmp {local_path}")
+    with open(etag_path, "w") as f:
+        f.write(remote_etag)
+
+    return local_path
 
 
 
@@ -113,6 +163,12 @@ args = parser.parse_args()
 
 print("TIMESTAMP:", args.timestamp)
 
+base_dir = os.path.abspath(".")
+
+# Remote inputs that aren't specific to one run are downloaded here. Every run shares this folder, so a file is
+# only downloaded again after its version on the server changes.
+downloaded_data_dir = os.path.join(base_dir, "downloaded_data")
+run(f"mkdir -p {downloaded_data_dir}")
 
 for key in "hg38_reference_fasta", "gencode_gtf", "extended_loci_catalog", "variation_clusters_tsv", "tenk10k_annotations", "hprc256_annotations", "aou1027_annotations":
     if (key == "variation_clusters_tsv" and args.skip_variation_cluster_annotations
@@ -127,12 +183,10 @@ for key in "hg38_reference_fasta", "gencode_gtf", "extended_loci_catalog", "vari
         parser.error(f"{key} file not found {path}")
 
     if path.startswith("gs://"):
-        run(f"gcloud storage cp -n {path} .")
-        path = os.path.basename(path)
+        path = download_unless_local_copy_is_up_to_date(path, downloaded_data_dir)
 
     setattr(args, key, os.path.abspath(path))
 
-base_dir = os.path.abspath(".")
 working_dir = os.path.abspath(f"results__{args.timestamp}")
 
 run(f"mkdir -p {working_dir}")
@@ -190,9 +244,28 @@ source_catalogs_in_order = [
 
 source_catalog_paths = {}
 for source_catalog in source_catalogs_in_order:
-    if not os.path.isfile(os.path.basename(source_catalog.url)):
-        run(f"wget -O {os.path.basename(source_catalog.url)}.tmp -qnc {source_catalog.url} && mv {os.path.basename(source_catalog.url)}.tmp {os.path.basename(source_catalog.url)}")
-    source_catalog_paths[source_catalog.name] = os.path.abspath(os.path.basename(source_catalog.url))
+    source_catalog_paths[source_catalog.name] = download_unless_local_copy_is_up_to_date(
+        source_catalog.url, os.path.abspath("."))
+
+# Remote files other than the source catalogs that later steps read. They're downloaded here, together with
+# everything else the pipeline needs, so that none of the steps need internet access.
+additional_data_urls = [
+    NS(name="MappabilityTrack",              url="gs://tgg-viewer/ref/GRCh38/mappability/GRCh38_no_alt_analysis_set_GCA_000001405.15-k36_m2.bw"),
+    NS(name="KnownDiseaseAssociatedLoci",    url="https://raw.githubusercontent.com/broadinstitute/str-analysis/main/str_analysis/variant_catalogs/variant_catalog_without_offtargets.GRCh38.json"),
+    NS(name="RefseqGTF",                     url="gs://str-truth-set/hg38/ref/other/hg38.ncbiRefSeq.gtf.gz"),
+    NS(name="ManeGTF",                       url="gs://str-truth-set/hg38/ref/other/MANE.GRCh38.v1.4.ensembl_genomic.gtf.gz"),
+    NS(name="Illumina174kAlleleHistograms",  url="https://github.com/Illumina/RepeatCatalogs/raw/master/hg38/genotype/1000genomes/1kg.gt.hist.tsv.gz"),
+    NS(name="T2TAssemblyGenotypes",          url="gs://str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/joined.78_samples.variants.tsv.gz"),
+    NS(name="TRExplorerCatalogV1",           url="https://github.com/broadinstitute/tandem-repeat-catalog/releases/download/v1.0/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.json.gz"),
+    NS(name="GangSTRCatalogV17",             url="https://s3.amazonaws.com/gangstr/hg38/genomewide/hg38_ver17.bed.gz"),
+]
+
+additional_data_paths = {}
+for additional_data in additional_data_urls:
+    additional_data_paths[additional_data.name] = download_unless_local_copy_is_up_to_date(
+        additional_data.url, downloaded_data_dir)
+
+print("Done downloading. The remaining steps don't need internet access.")
 
 # preprocess catalog of known disease-associated loci: split compound definitions
 run(f"python3 -u -m str_analysis.split_adjacent_loci_in_expansion_hunter_catalog {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']}", step_number=1)
@@ -331,6 +404,8 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
 
     run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
         --reference-fasta {args.hg38_reference_fasta} \
+        --known-disease-associated-loci {additional_data_paths['KnownDiseaseAssociatedLoci']} \
+        --mappability-track-bigwig {additional_data_paths['MappabilityTrack']} \
         --min-motif-size {min_motif_size} \
         --max-motif-size {max_motif_size} \
         --min-interval-size-bp 1 \
@@ -358,6 +433,8 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
 
     run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
         --reference-fasta {args.hg38_reference_fasta} \
+        --known-disease-associated-loci {additional_data_paths['KnownDiseaseAssociatedLoci']} \
+        --mappability-track-bigwig {additional_data_paths['MappabilityTrack']} \
         --min-motif-size {min_motif_size} \
         --max-motif-size {max_motif_size} \
         --min-interval-size-bp 1 \
@@ -384,6 +461,8 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
 
     run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
         --reference-fasta {args.hg38_reference_fasta} \
+        --known-disease-associated-loci {additional_data_paths['KnownDiseaseAssociatedLoci']} \
+        --mappability-track-bigwig {additional_data_paths['MappabilityTrack']} \
         --min-motif-size {min_motif_size} \
         --max-motif-size {max_motif_size} \
         --min-interval-size-bp 1 \
@@ -468,8 +547,11 @@ EOF
         --gene-models-source gencode \
         --gencode-gtf {args.gencode_gtf} \
         --gene-models-source refseq \
+        --refseq-gtf {additional_data_paths['RefseqGTF']} \
         --gene-models-source mane \
-        --known-disease-associated-loci {primary_disease_associated_loci_path} \
+        --mane-gtf {additional_data_paths['ManeGTF']} \
+        --mappability-track-bigwig {additional_data_paths['MappabilityTrack']} \
+        --known-disease-associated-loci {additional_data_paths['KnownDiseaseAssociatedLoci']} \
         --min-motif-size {min_motif_size} \
         --max-motif-size {max_motif_size} \
         --min-interval-size-bp 1 \
@@ -590,6 +672,8 @@ EOF
 
     # add allele frequencies to the catalog
     run(f"""python3 -u {base_dir}/scripts/add_allele_frequency_annotations.py \
+            --illumina174k-allele-histograms-tsv {additional_data_paths['Illumina174kAlleleHistograms']} \
+            --t2t-assembly-genotypes-tsv {additional_data_paths['T2TAssemblyGenotypes']} \
             --add-t2t-assembly-frequencies-to-overlapping-loci \
             -o {annotated_catalog_path}.with_allele_frequencies.json.gz  {annotated_catalog_path}""", step_number=30)
 
@@ -656,14 +740,14 @@ core_columns = [
     'ManeGeneRegion', 'ManeGeneId', 'ManeGeneName', 'ManeTranscriptId',
     'KnownDiseaseAssociatedMotif',  'KnownDiseaseAssociatedLocus', 'NsInFlanks',
     'LeftFlankMappability', 'FlanksAndLocusMappability', 'RightFlankMappability', 
-    'FoundInKnownDiseaseAssociatedLoci', 'FoundInIllumina174kPolymorphicTRs', 
-    'FoundInPerfectRepeatsInReference', 'FoundInPolymorphicTRsInT2TAssemblies', 
+    'FoundInTRExplorerV1:KnownDiseaseAssociatedLoci', 'FoundInTRExplorerV1:Illumina174kPolymorphicTRs',
+    'FoundInTRExplorerV1:PerfectRepeatsInReference', 'FoundInTRExplorerV1:PolymorphicTRsInT2TAssemblies',
     'NumRepeatsInReference', 'ReferenceRepeatPurity', 
     'AlleleFrequenciesFromIllumina174k', 'StdevFromIllumina174k',
     'AlleleFrequenciesFromT2TAssemblies', 'StdevFromT2TAssemblies',
     'VariationCluster', 'VariationClusterMotifs', 'VariationClusterSizeDiff',
     #'AlleleFrequenciesFromHPRC256', 'StdevFromHPRC256',
-    'StdevFromAoU1027', 'MedianAlleleFromAoU1027', 'MaxAlleleFromAoU1027', 'NumUniqueAllelesFromAoU1027',
+    'AoU1027_Stdev', 'AoU1027_Median', 'AoU1027_MaxAllele',
 ]
 
 drop_columns = ['VariantType', ]
@@ -694,7 +778,7 @@ EOF
 
     # Check that the combined catalog's repeat rows still reproduce the repeat catalog. This runs
     # here rather than beside the steps that build the combined catalog because it compares against
-    # {output_prefix}.TRGT.bed, which step 41 writes well after those steps. The guard repeats the
+    # {output_prefix}.TRGT.bed, which step 42 writes well after those steps. The guard repeats the
     # one on the block that defines the filename.
     if args.variation_clusters_tsv and not args.skip_variation_cluster_annotations:
         run(f"""python3 {base_dir}/scripts/validate_variation_clusters_catalog.py \
@@ -707,6 +791,7 @@ EOF
     # Perform basic internal consistency checks on the JSON catalog
     run(f"python3 {base_dir}/scripts/validate_catalog.py " +
         f"--known-pathogenic-loci-json-path {source_catalog_paths['TRExplorerV1:KnownDiseaseAssociatedLoci']} " +
+        f"--catalog-v1-json-path {additional_data_paths['TRExplorerCatalogV1']} " +
         ("--check-for-presence-of-annotations --check-for-presence-of-all-known-loci --check-for-presence-of-all-loci-from-v1 " if motif_size_label == "1_to_1000bp_motifs" else "") +
         f"{annotated_catalog_path}", step_number=50)
 
@@ -762,18 +847,13 @@ EOF
         continue
 
     # compare to the GangSTR_v17 catalog to make sure it's included
-    comparison_catalogs_in_order = [
-        ("GangSTR_v17", "https://s3.amazonaws.com/gangstr/hg38/genomewide/hg38_ver17.bed.gz"),
-        #("vamos_catalog_v2.1", "https://storage.googleapis.com/str-truth-set/hg38/ref/other/vamos_catalog.v2.1.bed.gz"),
-    ]
+    comparison_catalog_paths = {
+        "GangSTR_v17": additional_data_paths["GangSTRCatalogV17"],
+        #"vamos_catalog_v2.1": "https://storage.googleapis.com/str-truth-set/hg38/ref/other/vamos_catalog.v2.1.bed.gz",
+    }
 
-    comparison_catalog_paths = {}
-    for catalog_name, url in comparison_catalogs_in_order:
-        if not os.path.isfile(os.path.basename(url)):
-            run(f"wget -O {os.path.basename(url)}.tmp -qnc {url} && mv {os.path.basename(url)}.tmp {os.path.basename(url)}")
-        comparison_catalog_paths[catalog_name] = os.path.abspath(os.path.basename(url))
-
-    path_after_conversion = comparison_catalog_paths["GangSTR_v17"].replace(".bed.gz", ".json.gz")
+    # write the converted catalog here rather than next to the download, which is shared by every run
+    path_after_conversion = os.path.abspath(os.path.basename(comparison_catalog_paths["GangSTR_v17"]).replace(".bed.gz", ".json.gz"))
     run(f"python3 -u -m str_analysis.convert_gangstr_spec_to_expansion_hunter_catalog --verbose {comparison_catalog_paths['GangSTR_v17']} -o {path_after_conversion}", step_number=58)
     comparison_catalog_paths["GangSTR_v17"] = path_after_conversion
 

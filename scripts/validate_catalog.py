@@ -60,6 +60,8 @@ def main():
 	parser.add_argument("--known-pathogenic-loci-json-path", required=True, help="Path of ExpansionHunter catalog "
 						"containing known pathogenic loci. This is used to retrieve the original locus boundaries for "
 						"these loci since their IDs don't contain these coordinates the way that IDs of other loci do.")
+	parser.add_argument("--catalog-v1-json-path", default=PATH_OF_CATALOG_V1_JSON, help="Local path or URL of the v1 "
+						"catalog, used by --check-for-presence-of-all-loci-from-v1")
 	parser.add_argument("simple_repeat_catalog_path")
 	args = parser.parse_args()
 
@@ -82,7 +84,7 @@ def main():
 
 	v1_catalog_locus_ids = set()
 	if args.check_for_presence_of_all_loci_from_v1:
-		v1_catalog = open_file(PATH_OF_CATALOG_V1_JSON)
+		v1_catalog = open_file(args.catalog_v1_json_path)
 		for record in ijson.items(v1_catalog, "item"):
 			v1_catalog_locus_ids.add(record["LocusId"])
 

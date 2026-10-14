@@ -15,8 +15,14 @@ from str_analysis.utils.eh_catalog_utils import get_variant_catalog_iterator
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--skip-illumina174k-frequencies", action="store_true",
                     help="Skip annotating with allele frequencies from Illumina 174k catalog")
+parser.add_argument("--illumina174k-allele-histograms-tsv",
+                    default="https://github.com/Illumina/RepeatCatalogs/raw/master/hg38/genotype/1000genomes/1kg.gt.hist.tsv.gz",
+                    help="Local path or URL of the table of allele histograms for the Illumina 174k catalog")
 parser.add_argument("--skip-t2t-assembly-frequencies", action="store_true",
                     help="Skip annotating with allele frequencies from T2T assemblies")
+parser.add_argument("--t2t-assembly-genotypes-tsv",
+                    default="gs://str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/joined.78_samples.variants.tsv.gz",
+                    help="Local path, gs:// path or URL of the table of genotypes of polymorphic loci in T2T assemblies")
 parser.add_argument("--add-t2t-assembly-frequencies-to-overlapping-loci", action="store_true",
                     help="By default, this script will only add the AlleleFrequenciesFromT2TAssemblies field to loci "
                          "that exactly match the boundaries of loci in the T2T assemblies catalog. This option enables "
@@ -53,10 +59,8 @@ def get_stdev_of_allele_histogram_dict(allele_histogram_dict):
 histograms_from_illumina_174k = {}
 stdev_from_illumina_174k = {}
 if not args.skip_illumina174k_frequencies:
-    # download illumina table
-    url = "https://github.com/Illumina/RepeatCatalogs/raw/master/hg38/genotype/1000genomes/1kg.gt.hist.tsv.gz"
-    print(f"Loading allele frequencies for the Illumina 174k catalog from {url}")
-    df1 = pd.read_table(download_local_copy(url))
+    print(f"Loading allele frequencies for the Illumina 174k catalog from {args.illumina174k_allele_histograms_tsv}")
+    df1 = pd.read_table(download_local_copy(args.illumina174k_allele_histograms_tsv))
     print(f"Parsed {len(df1):,d} rows")
     print("Computing histograms for Illumina 174k")
     for _, record in df1.iterrows():
@@ -79,10 +83,8 @@ histograms_from_t2t_assemblies = {}
 stdev_from_t2t_assemblies = {}
 interval_trees_for_t2t_assemblies = collections.defaultdict(IntervalTree)
 if not args.skip_t2t_assembly_frequencies:
-    # download table of genotypes from T2T assemblies
-    url2 = "gs://str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/joined.78_samples.variants.tsv.gz"
-    print(f"Loading allele frequencies for the catalog of polymorphic loci in T2T assemblies from {url2}")
-    df2 = pd.read_table(download_local_copy(url2))
+    print(f"Loading allele frequencies for the catalog of polymorphic loci in T2T assemblies from {args.t2t_assembly_genotypes_tsv}")
+    df2 = pd.read_table(download_local_copy(args.t2t_assembly_genotypes_tsv))
     print(f"Parsed {len(df2):,d} rows")
     print("Computing histograms for T2T assemblies")
     allele_columns = [c for c in df2.columns if c.startswith("NumRepeats") and c != "NumRepeatsInReference"]
