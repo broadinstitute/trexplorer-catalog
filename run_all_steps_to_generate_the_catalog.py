@@ -142,12 +142,15 @@ chdir(working_dir)
 release_draft_folder = os.path.abspath(f"release_draft_{args.timestamp}")
 run(f"mkdir -p {release_draft_folder}")
 
-log_file_path = f"{release_draft_folder}/{args.output_prefix}.all_steps.log"
+start_datetime = datetime.datetime.now()
+
+# Name the log after the run's start time so that a dry run or a partial rerun doesn't overwrite the
+# log of an earlier full run.
+log_file_path = f"{release_draft_folder}/{args.output_prefix}.all_steps.{start_datetime.strftime('%Y%m%d-%H%M%S')}.log"
 print(f"Writing to log file: {log_file_path}")
 tee_stdout_and_stderr_to_log_file(log_file_path)
 
 script_start_time = time.time()
-start_datetime = datetime.datetime.now()
 print(f"Started at: {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 
 # STEP #1  (already done for hg38, and results are publicly available. Will just download them in step #2)
