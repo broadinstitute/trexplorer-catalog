@@ -21,6 +21,7 @@
 nohup.out
 
 results*
+downloaded_data/
 paper/compare_catalogs
 paper/*.png
 paper/*.svg
