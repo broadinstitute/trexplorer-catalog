@@ -558,6 +558,16 @@ EOF
         --output-path {annotated_catalog_path} \
         {output_prefix}.final_merged.with_extended_loci.json.gz""", step_number=16)
 
+    # The annotation above labels a known disease-associated locus only when the catalog locus has exactly the same
+    # boundaries, which misses loci like PRE-MIR7-2 (chr15:88569433-88569449, while the catalog locus also includes
+    # the trailing partial repeat: 15-88569433-88569452-TTTG). Label those using the TRExplorerV2 field of the known
+    # disease-associated loci catalog. These commands share step 16's number so that rerunning step 16 reapplies them.
+    run(f"""python3 {base_dir}/scripts/add_known_disease_associated_locus_labels_using_TRExplorerV2_ids.py \
+        --known-disease-associated-loci {additional_data_paths['KnownDiseaseAssociatedLoci']} \
+        --output-catalog-json-path {annotated_catalog_path}.with_TRExplorerV2_disease_locus_labels.json.gz \
+        {annotated_catalog_path}""", step_number=16)
+    run(f"mv {annotated_catalog_path}.with_TRExplorerV2_disease_locus_labels.json.gz {annotated_catalog_path}", step_number=16)
+
     # create a version of the ExpansionHunter catalog without extra annotations
     run(f"""python3 << EOF
 import gzip, ijson, json
