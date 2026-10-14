@@ -69,7 +69,8 @@ def tabix_coordinate_flags(path):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--hg38-reference-fasta", default="hg38.fa", help="Path of hg38 reference genome FASTA file")
-parser.add_argument("--gencode-gtf", default="gencode.v46.basic.annotation.gtf.gz", help="Gene annotations GTF file")
+parser.add_argument("--gencode-gtf", default="gs://str-truth-set/hg38/ref/other/gencode.v50.annotation.gtf.gz",
+                    help="Gencode GTF file used to fill in the catalog's Gencode gene annotation fields")
 parser.add_argument("--output-prefix", default=f"TRExplorer.repeat_catalog_v{VERSION}.hg38")
 parser.add_argument("--variation-clusters-output-prefix", default=f"TRExplorer.variation_clusters_and_all_repeats_v{VERSION}.hg38")
 parser.add_argument("--legacy-variation-clusters-output-prefix",
@@ -462,6 +463,7 @@ EOF
     run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
         --reference-fasta {args.hg38_reference_fasta} \
         --gene-models-source gencode \
+        --gencode-gtf {args.gencode_gtf} \
         --gene-models-source refseq \
         --gene-models-source mane \
         --known-disease-associated-loci {primary_disease_associated_loci_path} \
