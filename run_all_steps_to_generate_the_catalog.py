@@ -560,8 +560,10 @@ EOF
 
     # The annotation above labels a known disease-associated locus only when the catalog locus has exactly the same
     # boundaries, which misses loci like PRE-MIR7-2 (chr15:88569433-88569449, while the catalog locus also includes
-    # the trailing partial repeat: 15-88569433-88569452-TTTG). Label those using the TRExplorerV2 field of the known
-    # disease-associated loci catalog. These commands share step 16's number so that rerunning step 16 reapplies them.
+    # the trailing partial repeat: 15-88569433-88569452-TTTG) and RAI1__17-17808416-17808460-TTTTA (whose catalog
+    # locus is 17-17808414-17808460-TTATT, which lies inside the RAI1 locus 17-17808358-17808460-TTTTA). Label those
+    # using the TRExplorerV2 field of the known disease-associated loci catalog. These commands share step 16's
+    # number so that rerunning step 16 reapplies them.
     run(f"""python3 {base_dir}/scripts/add_known_disease_associated_locus_labels_using_TRExplorerV2_ids.py \
         --known-disease-associated-loci {additional_data_paths['KnownDiseaseAssociatedLoci']} \
         --output-catalog-json-path {annotated_catalog_path}.with_TRExplorerV2_disease_locus_labels.json.gz \
