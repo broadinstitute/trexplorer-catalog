@@ -66,7 +66,7 @@ def main():
         "TRExplorerV2:ClinvarIndelsThatAreTRs2025",
         "TRExplorerV2:Tanudisastro2025",
         "TRExplorerV2:Manigbas2024",
-        "TRExplorerV2:Sulovari2021",
+        "TRExplorerV2:Sulovari2019",
         "TRExplorerV2:Garg2021",
         "TRExplorerV2:Mukamel2021",
         "TRExplorerV2:Annear2021",
