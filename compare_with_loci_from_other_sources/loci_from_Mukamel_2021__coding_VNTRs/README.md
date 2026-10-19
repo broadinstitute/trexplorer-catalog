@@ -36,7 +36,7 @@ Leaves 105 loci. No filtering against the v2 draft catalog is done here.
 
 ## Relationship to what v2 actually includes
 
-`run_all_steps_to_generate_the_catalog.py` (source `TRExplorerV2:Mukamel2021`, merge tier v2b)
+`run_all_steps_to_generate_the_hg38_catalog.py` (source `TRExplorerV2:Mukamel2021`, merge tier v2b)
 downloads `gs://tandem-repeat-catalog/v2.0/Mukamel_2021.loci_to_include_in_catalog.bed.gz`, which is
 produced by `../loci_from_Mukamel_2021/select_loci_to_include_in_catalog.py`. That script starts from
 the same 105 loci but runs `select_loci(..., adjust_motifs_to_maximize_purity=True,

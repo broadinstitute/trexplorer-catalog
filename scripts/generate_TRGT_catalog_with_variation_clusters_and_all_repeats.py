@@ -138,8 +138,8 @@ def main():
     # Write one row per repeat in the catalog
     for record_i, record in enumerate(get_variant_catalog_iterator(
             args.input_repeat_catalog, show_progress_bar=args.show_progress_bar)):
-        # split_adjacent_repeats matches how the repeat catalog's own TRGT file is built (step 41 of
-        # run_all_steps_to_generate_the_catalog.py), so a compound record becomes one row per adjacent
+        # split_adjacent_repeats matches how the repeat catalog's own TRGT file is built (step 42 of
+        # run_all_steps_to_generate_the_hg38_catalog.py), so a compound record becomes one row per adjacent
         # repeat here too rather than a single merged row. The converter's reference fasta argument is
         # only used to normalize chromosome names, which this catalog already writes with a chr prefix.
         for output_row in convert_expansion_hunter_record_to_trgt_rows(

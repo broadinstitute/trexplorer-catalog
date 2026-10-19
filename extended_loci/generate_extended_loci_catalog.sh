@@ -13,7 +13,7 @@
 # loci to add to v2 rather than a replacement for it. A new definition is dropped when v2 already
 # describes the same repeat, so nothing here duplicates v2.
 #
-# This is run once, by hand, and its output is fed to run_all_steps_to_generate_the_catalog.py via
+# This is run once, by hand, and its output is fed to run_all_steps_to_generate_the_hg38_catalog.py via
 # --extended-loci-catalog. It is kept out of that script because the input is the finished v2
 # catalog, so the result is fixed rather than something each pipeline run should recompute.
 #
