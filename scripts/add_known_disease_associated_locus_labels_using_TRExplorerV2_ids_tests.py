@@ -49,6 +49,16 @@ class TestBuildKnownDiseaseAssociatedLocusIdsByTRExplorerV2Id(unittest.TestCase)
         ])
         self.assertEqual(lookup, {"8-118366812-118366918-AAAAT": "SAMD12"})
 
+    def test_skips_entries_that_are_already_labels_in_the_catalog(self):
+        known_loci = [
+            make_known_locus("SAMD12", "chr8:118366815-118366880", "8-118366812-118366918-AAAAT"),
+            make_known_locus("SAMD12__8-118366812-118366918-AAAAT", "chr8:118366812-118366918",
+                             "8-118366812-118366918-AAAAT"),
+            make_known_locus("HTT", "chr4:3074876-3074933", "4-3074876-3074933-CAG"),
+        ]
+        lookup = script.build_known_disease_associated_locus_ids_by_TRExplorerV2_id(known_loci, {"SAMD12", "HTT"})
+        self.assertEqual(lookup, {"8-118366812-118366918-AAAAT": "SAMD12__8-118366812-118366918-AAAAT"})
+
 
 class TestMain(unittest.TestCase):
 
@@ -61,14 +71,14 @@ class TestMain(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
-    def run_main(self, known_loci, catalog_records):
+    def run_main(self, known_loci, catalog_records, extra_args=()):
         with open(self.known_loci_path, "wt") as f:
             json.dump(known_loci, f)
         with gzip.open(self.catalog_path, "wt") as f:
             json.dump(catalog_records, f)
 
         argv = ["script", "--known-disease-associated-loci", self.known_loci_path,
-                "-o", self.output_path, self.catalog_path]
+                *extra_args, "-o", self.output_path, self.catalog_path]
         with mock.patch.object(sys, "argv", argv), mock.patch("builtins.print"):
             script.main()
 
@@ -101,6 +111,36 @@ class TestMain(unittest.TestCase):
             None,
         ])
         self.assertEqual(output_records[0]["NumRepeatsInReference"], 4.75)
+
+    def test_matches_another_catalog_field_against_the_TRExplorerV2_ids(self):
+        # a catalog lifted over from hg38 keeps each locus's hg38 LocusId in a separate field
+        known_loci = [make_known_locus("RAI1__17-17808416-17808460-TTTTA", "chr17:17755019-17755053",
+                                       "17-17808414-17808460-TTATT")]
+        catalog_records = [
+            {"LocusId": "17-17755017-17755053-TTATT", "Hg38LocusId": "17-17808414-17808460-TTATT",
+             "KnownDiseaseAssociatedLocus": None},
+            {"LocusId": "17-17808414-17808460-TTATT", "KnownDiseaseAssociatedLocus": None},
+        ]
+
+        output_records = self.run_main(known_loci, catalog_records, ["--catalog-locus-id-field", "Hg38LocusId"])
+
+        self.assertEqual([record["KnownDiseaseAssociatedLocus"] for record in output_records],
+                         ["RAI1__17-17808416-17808460-TTTTA", None])
+
+    def test_does_not_reuse_a_label_that_the_exact_boundary_match_already_assigned(self):
+        # the catalog has the known locus's exact definition, so the locus with its TRExplorerV2 id stays unlabeled
+        known_loci = [make_known_locus("RAI1__17-17755019-17755053-ATTTT", "chr17:17755019-17755053",
+                                       "17-17808414-17808460-TTATT")]
+        catalog_records = [
+            {"LocusId": "17-17755017-17755053-TTATT", "Hg38LocusId": "17-17808414-17808460-TTATT",
+             "KnownDiseaseAssociatedLocus": None},
+            {"LocusId": "17-17755019-17755053-ATTTT", "KnownDiseaseAssociatedLocus": "RAI1__17-17755019-17755053-ATTTT"},
+        ]
+
+        output_records = self.run_main(known_loci, catalog_records, ["--catalog-locus-id-field", "Hg38LocusId"])
+
+        self.assertEqual([record["KnownDiseaseAssociatedLocus"] for record in output_records],
+                         [None, "RAI1__17-17755019-17755053-ATTTT"])
 
     def test_exits_when_no_known_locus_has_a_TRExplorerV2_field(self):
         known_loci = [make_known_locus("PRE-MIR7-2", "chr15:88569433-88569449", None)]
