@@ -173,6 +173,9 @@ additional_data_urls = [
     NS(name="T2TAssemblyGenotypes",          url="gs://str-truth-set-v2/filter_vcf/all_repeats_including_homopolymers_keeping_loci_that_have_overlapping_variants/combined/joined.78_samples.variants.tsv.gz"),
     NS(name="TRExplorerCatalogV1",           url="https://github.com/broadinstitute/tandem-repeat-catalog/releases/download/v1.0/repeat_catalog_v1.hg38.1_to_1000bp_motifs.EH.json.gz"),
     NS(name="GangSTRCatalogV17",             url="https://s3.amazonaws.com/gangstr/hg38/genomewide/hg38_ver17.bed.gz"),
+    # The Miga lab's centromeric satellite (CenSat) annotation of hg38, made with the same workflow as the CHM13 one
+    # that the CHM13 pipeline uses, so that both catalogs' CentromereAndSatelliteRegion fields have the same classes
+    NS(name="CentromereAndSatelliteRegionsBed", url="https://raw.githubusercontent.com/hloucks/CenSatData/fb50a32b8ce443b9b0ea718e3c0c47b91507e59c/HG38/hg38.cenSatv1.0.bed"),
 ]
 
 additional_data_paths = {}
@@ -455,6 +458,14 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --output-catalog-json-path {annotated_catalog_path}.with_TRExplorerV2_disease_locus_labels.json.gz \
         {annotated_catalog_path}""", step_number=16)
     run(f"mv {annotated_catalog_path}.with_TRExplorerV2_disease_locus_labels.json.gz {annotated_catalog_path}", step_number=16)
+
+    # Label each locus with the class of the centromeric satellite region it overlaps, if any (eg. HSat3, active_hor,
+    # or ct for a centromeric transition region). These commands also share step 16's number.
+    run(f"""python3 {base_dir}/scripts/add_centromere_and_satellite_region_annotations.py \
+        --centromere-and-satellite-regions-bed {additional_data_paths['CentromereAndSatelliteRegionsBed']} \
+        --output-catalog-json-path {annotated_catalog_path}.with_centromere_and_satellite_regions.json.gz \
+        {annotated_catalog_path}""", step_number=16)
+    run(f"mv {annotated_catalog_path}.with_centromere_and_satellite_regions.json.gz {annotated_catalog_path}", step_number=16)
 
     # create a version of the ExpansionHunter catalog without extra annotations
     run(f"""python3 {base_dir}/scripts/write_expansion_hunter_catalog_without_annotations.py \
