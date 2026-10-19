@@ -1,11 +1,10 @@
 import argparse
 import datetime
+import functools
 import gzip
 import json
 import os
 import re
-import requests
-import subprocess
 import time
 from types import SimpleNamespace as NS
 
@@ -21,100 +20,12 @@ fi
 
 from str_analysis.utils.file_utils import file_exists, tee_stdout_and_stderr_to_log_file
 
+# imported after the install block above, since str-analysis is what installs the requests package this module uses
+import run_all_steps_helpers
+from run_all_steps_helpers import chdir, is_bgzipped, tabix_coordinate_flags
+
 
 VERSION = "2.1"
-
-def run(command, step_number=None):
-    command = re.sub("[ \\t]{2,}", "  ", command)  # remove extra spaces
-    if args.dry_run:
-        if step_number is not None:
-            print(f"STEP #{step_number}: {command}")
-        else:
-            print(command)
-
-    if not args.dry_run or command.startswith("mkdir"):
-        if step_number is None or (
-            not (args.only_step is not None and step_number != args.only_step) and
-            not (args.start_with_step is not None and step_number < args.start_with_step) and
-            not (args.end_with_step is not None and step_number > args.end_with_step)
-        ):
-            if step_number is not None:
-                print(f"\nSTEP #{step_number}: {command}")
-            else:
-                print(f"\n--- $ {command}")
-            subprocess.run(command, shell=True, check=True)
-
-def chdir(d):
-    print(f"cd {d}")
-    os.chdir(d)
-
-def is_bgzipped(path):
-    """Returns True if path is bgzipped, and so can be tabix-indexed, rather than plain gzipped.
-
-    A bgzipped file starts with a gzip header that sets the FEXTRA flag and carries a "BC"
-    extra subfield. Checking the bytes means this works for a file that a previous run
-    already compressed, where the branch that compressed it is no longer known.
-    """
-    with open(path, "rb") as f:
-        header = f.read(14)
-    return header[:4] == b"\x1f\x8b\x08\x04" and header[12:14] == b"BC"
-
-# The LongTR, HipSTR and GangSTR converters in str-analysis write start_0based + 1, so those three
-# formats are 1-based rather than true BED. Indexing them with "-p bed", which means "-s1 -b2 -e3 -0",
-# shifts every record one base to the right and makes tabix miss it at the left edge of a query.
-ONE_BASED_BED_SUFFIXES = (".LongTR.bed.gz", ".HipSTR.bed.gz", ".GangSTR.bed.gz")
-
-def tabix_coordinate_flags(path):
-    """Returns the tabix flags describing path's coordinate convention."""
-    return "-s1 -b2 -e3" if path.endswith(ONE_BASED_BED_SUFFIXES) else "-p bed"
-
-def get_remote_file_etag(url):
-    """Returns the ETag that the server reports for url. It changes whenever the file's contents change."""
-    if url.startswith("gs://"):
-        return subprocess.run(["gcloud", "storage", "objects", "describe", url, "--format=value(etag)"],
-                              capture_output=True, text=True, check=True).stdout.strip()
-
-    response = requests.head(url, allow_redirects=True, timeout=60)
-    response.raise_for_status()
-    if not response.headers.get("ETag"):
-        raise ValueError(f"{url} has no ETag, so there's no way to tell whether a local copy of it is up to date")
-    return response.headers["ETag"]
-
-def download_unless_local_copy_is_up_to_date(url, local_dir):
-    """Downloads url into local_dir, unless the copy already there has the file's current ETag.
-
-    The ETag of each download is saved next to it in a .etag file, which is what later runs compare against.
-
-    Args:
-        url (str): gs:// path or URL of the file
-        local_dir (str): directory to download the file into
-
-    Returns:
-        str: path of the local copy
-    """
-    local_path = os.path.join(local_dir, os.path.basename(url))
-    if args.dry_run:
-        print(f"Would download {url} to {local_path} unless the local copy is up to date")
-        return local_path
-
-    etag_path = f"{local_path}.etag"
-    remote_etag = get_remote_file_etag(url)
-    if os.path.isfile(local_path) and os.path.isfile(etag_path):
-        with open(etag_path) as f:
-            if f.read() == remote_etag:
-                print(f"Local copy of {url} is up to date: {local_path}")
-                return local_path
-
-    if url.startswith("gs://"):
-        run(f"gcloud storage cp {url} {local_path}.tmp")
-    else:
-        run(f"wget -q -O {local_path}.tmp {url}")
-    run(f"mv {local_path}.tmp {local_path}")
-    with open(etag_path, "w") as f:
-        f.write(remote_etag)
-
-    return local_path
-
 
 
 parser = argparse.ArgumentParser()
@@ -160,6 +71,10 @@ parser.add_argument("--timestamp", default=datetime.datetime.now().strftime('%Y-
 parser.add_argument("--dry-run", action="store_true", help="Print commands without running them")
 
 args = parser.parse_args()
+
+run = functools.partial(run_all_steps_helpers.run, args=args)
+download_unless_local_copy_is_up_to_date = functools.partial(
+    run_all_steps_helpers.download_unless_local_copy_is_up_to_date, args=args)
 
 print("TIMESTAMP:", args.timestamp)
 
@@ -506,40 +421,11 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
     # in v2 are already in exactly this position. Fixing it properly means either regenerating the
     # variation clusters against this catalog, or teaching the TRGT catalog script to skip loci
     # whose Source is TRExplorerV2.1:ExtendedLocusBoundaries when restoring what the TSV lacks.
-    run(f"""python3 -u << EOF
-from str_analysis.extend_str_catalog_boundaries import sort_catalog_records
-from str_analysis.utils.eh_catalog_utils import get_variant_catalog_iterator
-from str_analysis.utils.export_json import export_json
-
-records = list(get_variant_catalog_iterator("{output_prefix}.final_merged.json.gz"))
-print(f"Read {{len(records):,d}} loci from {output_prefix}.final_merged.json.gz")
-
-extended_records = list(get_variant_catalog_iterator("{args.extended_loci_catalog}"))
-print(f"Read {{len(extended_records):,d}} extended loci from {args.extended_loci_catalog}")
-
-already_in_catalog = {{
-    (r["ReferenceRegion"], r["LocusStructure"]) for r in records
-}}
-new_records = [
-    r for r in extended_records
-    if (r["ReferenceRegion"], r["LocusStructure"]) not in already_in_catalog
-]
-if len(new_records) < len(extended_records):
-    print(f"Skipped {{len(extended_records) - len(new_records):,d}} extended loci already defined in "
-          f"the catalog")
-
-# Name them as their own source. Without this they reach the sources-stats table as "Unknown", since
-# it reads record["Source"], and the catalog would not say where a fifth of its widest definitions
-# came from.
-for record in new_records:
-    record["Source"] = "TRExplorerV2.1:ExtendedLocusBoundaries"
-    record["FoundInTRExplorerV2.1:ExtendedLocusBoundaries"] = True
-
-export_json(sort_catalog_records(records + new_records),
-            "{output_prefix}.final_merged.with_extended_loci.json.gz")
-print(f"Wrote {{len(records) + len(new_records):,d}} loci")
-EOF
-""", step_number=15)
+    run(f"""python3 -u {base_dir}/scripts/append_loci_not_already_in_catalog.py \
+        --catalog-of-loci-to-append {args.extended_loci_catalog} \
+        --source-name TRExplorerV2.1:ExtendedLocusBoundaries \
+        --output-catalog-json-path {output_prefix}.final_merged.with_extended_loci.json.gz \
+        {output_prefix}.final_merged.json.gz""", step_number=15)
 
     annotated_catalog_path = f"{output_prefix}.EH.with_annotations.json.gz"
     run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
@@ -571,30 +457,9 @@ EOF
     run(f"mv {annotated_catalog_path}.with_TRExplorerV2_disease_locus_labels.json.gz {annotated_catalog_path}", step_number=16)
 
     # create a version of the ExpansionHunter catalog without extra annotations
-    run(f"""python3 << EOF
-import gzip, ijson, json
-
-f = gzip.open("{annotated_catalog_path}", "rt")
-out = gzip.open("{output_prefix}.EH.json.gz", "wt")
-i = 0
-total = 0
-out.write("[")
-for record in ijson.items(f, "item", use_float=True):
-    total += 1
-    # skip chrM loci because ExpansionHunter prints an error like: 'Unable to extract chrM:-793-207 from hg38.fa'
-    is_chrM = record["LocusId"].startswith("M-") or record["LocusId"].startswith("chrM-")
-    if is_chrM: print(f"Skipping chrM locus: {{record['LocusId']}}")
-    if is_chrM: continue
-    if record["NsInFlanks"] > 5: continue
-    if i > 0: out.write(", ")
-    i += 1
-    out.write(json.dumps({{ 
-        k: v for k, v in record.items() if k in {{"LocusId", "ReferenceRegion", "VariantType", "LocusStructure"}} 
-    }}, indent=4))
-out.write("]")
-print(f"Wrote {{i:,d}} out of {{total:,d}} ({{i/total:0.1%}}%) loci to {output_prefix}.EH.json.gz")
-EOF
-""", step_number=17)
+    run(f"""python3 {base_dir}/scripts/write_expansion_hunter_catalog_without_annotations.py \
+        --output-catalog-json-path {output_prefix}.EH.json.gz \
+        {annotated_catalog_path}""", step_number=17)
 
     run(f"python3 -m str_analysis.filter_out_loci_with_Ns_in_flanks "
         f"-R {args.hg38_reference_fasta} "
@@ -645,8 +510,11 @@ EOF
 
         # trgt reads a bgzipped BED directly, so there is no need to decompress it first. This
         # catalog holds a row per repeat as well as a row per variation cluster, which means rows
-        # deliberately overlap, and this step is what confirms trgt still accepts them.
-        run(f"trgt validate --genome {args.hg38_reference_fasta} --repeats {variation_clusters_and_all_repeats_release_filename}",
+        # deliberately overlap, and this step is what confirms trgt still accepts them. trgt exits 0 even when it
+        # prints "Validation failed", so stop the pipeline unless its output contains "Validation successful".
+        run(f"trgt validate --genome {args.hg38_reference_fasta} --repeats {variation_clusters_and_all_repeats_release_filename} 2>&1 "
+            f"| tee {variation_clusters_and_all_repeats_release_filename}.trgt_validate.log  "
+            f"&& grep -q 'Validation successful' {variation_clusters_and_all_repeats_release_filename}.trgt_validate.log",
             step_number=24)
 
         # The superseded catalog, which holds a row only for repeats that are not inside a variation
@@ -735,42 +603,9 @@ EOF
 
 
     # convert to TSV
-    run(f"""python3 << EOF
-import gzip
-import json
-import pandas as pd
-from pprint import pformat
-with gzip.open("{annotated_catalog_path}", "rt") as f:
-    data = json.load(f)
-print(f"Loaded {{len(data):,d}} records from {annotated_catalog_path}")
-print("Writing it to TSV file...")
-df = pd.DataFrame(data)
-core_columns = [
-    'LocusId', 'ReferenceRegion', 'LocusStructure', 'CanonicalMotif', 'TRsInRegion',
-    'Source', 'GencodeGeneRegion', 'GencodeGeneId', 'GencodeGeneName', 'GencodeTranscriptId',
-    'RefseqGeneRegion', 'RefseqGeneId', 'RefseqGeneName', 'RefseqTranscriptId', 
-    'ManeGeneRegion', 'ManeGeneId', 'ManeGeneName', 'ManeTranscriptId',
-    'KnownDiseaseAssociatedMotif',  'KnownDiseaseAssociatedLocus', 'NsInFlanks',
-    'LeftFlankMappability', 'FlanksAndLocusMappability', 'RightFlankMappability', 
-    'FoundInTRExplorerV1:KnownDiseaseAssociatedLoci', 'FoundInTRExplorerV1:Illumina174kPolymorphicTRs',
-    'FoundInTRExplorerV1:PerfectRepeatsInReference', 'FoundInTRExplorerV1:PolymorphicTRsInT2TAssemblies',
-    'NumRepeatsInReference', 'ReferenceRepeatPurity', 
-    'AlleleFrequenciesFromIllumina174k', 'StdevFromIllumina174k',
-    'AlleleFrequenciesFromT2TAssemblies', 'StdevFromT2TAssemblies',
-    'VariationCluster', 'VariationClusterMotifs', 'VariationClusterSizeDiff',
-    #'AlleleFrequenciesFromHPRC256', 'StdevFromHPRC256',
-    'AoU1027_Stdev', 'AoU1027_Median', 'AoU1027_MaxAllele',
-]
-
-drop_columns = ['VariantType', ]
-for c in set(core_columns)  - set(df.columns): df[c] = None
-df = df[core_columns + [c for c in df.columns if c not in (core_columns + drop_columns)]]
-
-output_tsv_path = "{annotated_catalog_path.replace('.json.gz', '') + '.tsv.gz'}"
-df.to_csv(output_tsv_path, sep="\\t", index=False)
-print(f"Wrote {{len(df):,d}} rows to {{output_tsv_path}} with columns: {{pformat(list(df.columns))}}")
-EOF
-""", step_number=41)
+    run(f"""python3 {base_dir}/scripts/convert_catalog_json_to_tsv.py \
+        --output-tsv-path {annotated_catalog_path.replace('.json.gz', '') + '.tsv.gz'} \
+        {annotated_catalog_path}""", step_number=41)
 
     # convert the catalog from ExpansionHunter catalog format to TRGT, LongTR, HipSTR, and GangSTR formats
     run(f"python3 -m str_analysis.convert_expansion_hunter_catalog_to_trgt_catalog -R {args.hg38_reference_fasta} --split-adjacent-repeats {annotated_catalog_path}  --output-file {output_prefix}.TRGT.bed", step_number=42)
@@ -785,8 +620,11 @@ EOF
         f"--motif-size-column {annotated_catalog_path}  --output-file {output_prefix}.ATaRVa.bed.gz",
         step_number=46)
 
-    # Confirm that the TRGT catalog passes 'trgt validate'
-    run(f"trgt validate --genome {args.hg38_reference_fasta}  --repeats {output_prefix}.TRGT.bed", step_number=47)
+    # Confirm that the TRGT catalog passes 'trgt validate'. trgt exits 0 even when it prints "Validation failed",
+    # so stop the pipeline unless its output contains "Validation successful".
+    run(f"trgt validate --genome {args.hg38_reference_fasta}  --repeats {output_prefix}.TRGT.bed 2>&1 "
+        f"| tee {output_prefix}.trgt_validate.log  && grep -q 'Validation successful' {output_prefix}.trgt_validate.log",
+        step_number=47)
 
     # Check that the combined catalog's repeat rows still reproduce the repeat catalog. This runs
     # here rather than beside the steps that build the combined catalog because it compares against
