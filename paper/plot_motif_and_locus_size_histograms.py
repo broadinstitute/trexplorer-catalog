@@ -121,12 +121,9 @@ def create_plot(histogram_type, df, args):
 
     df.index = range(len(df))
 
+    # squeeze=False returns a 2D array of axes even when the grid has a single row or column
     fig, all_axes = plt.subplots(grid_rows, grid_columns, figsize=(7 * grid_columns, 7 * grid_rows), sharey=True,
-                                 sharex=False, constrained_layout=True)  # , dpi=600)
-
-    # check if it's a sequence type or a single axis
-    if isinstance(all_axes, plt.Axes):
-        all_axes = [[all_axes]]
+                                 sharex=False, constrained_layout=True, squeeze=False)  # , dpi=600)
 
     i = 0
     for idx_i in range(grid_rows):
