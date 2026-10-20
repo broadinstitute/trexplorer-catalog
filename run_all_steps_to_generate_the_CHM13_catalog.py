@@ -57,12 +57,12 @@ from str_analysis.utils.file_utils import tee_stdout_and_stderr_to_log_file
 from str_analysis.utils.gtf_utils import compute_UTR_type
 
 # The converted CAT/Liftoff GTF labels each gene copy's UTRs as 5UTR or 3UTR records, since copies share an ENST id. A
-# str-analysis from before commit 652d5b8 ignores those labels and labels each UTR from the CDS of the first copy with
+# str-analysis from before commit ebb1d3e ignores those labels and labels each UTR from the CDS of the first copy with
 # that ENST id, which silently gives some UTRs the wrong label. The install block above doesn't upgrade an existing
 # install, so check that the installed str-analysis keeps the labels.
 if compute_UTR_type({"feature_type": "UTR", "transcript_id": "", "UTR_type_from_gtf": "5' UTR"}, {}) != "5' UTR":
     raise RuntimeError("The installed str-analysis package ignores the 5UTR and 3UTR labels in GTF files. Upgrade it to "
-                       "a version that includes str-analysis commit 652d5b8.")
+                       "a version that includes str-analysis commit ebb1d3e.")
 
 # imported after the install block above, since str-analysis is what installs the requests package this module uses
 import run_all_steps_helpers
