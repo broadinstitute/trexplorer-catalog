@@ -11,9 +11,11 @@ As in the paper, both catalogs are first trimmed (annotate_and_filter_str_catalo
 width is an exact multiple of its motif size. Everything runs locally. Like make, a rerun skips each step whose output
 is newer than its inputs, so after a catalog is regenerated the steps that depend on it run again.
 
-The gene region bar plots are skipped: the CHM13 Gencode annotation (the T2T consortium's CAT/Liftoff GTF) has no UTR
-features, so the 5' UTR and 3' UTR bars would always be empty, and the hg38 comparison skips them too so that the two
-comparisons have the same plots.
+The gene region bar plots are skipped, and the hg38 comparison skips them too so that the two comparisons have the same
+plots. CHM13 catalogs built before 10/20/2026 took their Gencode annotation from UCSC's copy of the T2T consortium's
+CAT/Liftoff GTF, which has no UTR features, so their 5' UTR and 3' UTR bars would always be empty. Catalogs built since
+then use scripts/convert_CHM13_CAT_Liftoff_gene_annotation_to_gtf_with_Ensembl_ids.py, which adds the UTRs, so the
+gene region plots can be turned back on (by removing --skip-gene-region-plots) for comparisons that use such a catalog.
 """
 
 import argparse

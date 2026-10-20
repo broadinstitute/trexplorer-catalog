@@ -22,9 +22,12 @@ repeats source still covers the repeats of CHM13's chrX PARs directly.
 
 The hg38-only annotations (allele frequencies, TenK10K, HPRC256, AoU and variation clusters) aren't added. Mappability
 and MANE annotations are skipped for now, since there's no CHM13 mappability track or MANE annotation yet. The Gencode
-gene annotations come from the T2T consortium's CAT/Liftoff mapping of GENCODE v35 genes onto CHM13, whose gene and
-transcript ids are LOFF_G... and LOFF_T... rather than ENSG... and ENST... ids. That GTF has no UTR features, so
-GencodeGeneRegion reports a repeat in a 5' or 3' UTR as 'exon'; the RefseqGeneRegion field does distinguish UTRs.
+gene annotations come from the T2T consortium's CAT/Liftoff mapping of GENCODE v35 genes onto CHM13, converted by
+scripts/convert_CHM13_CAT_Liftoff_gene_annotation_to_gtf_with_Ensembl_ids.py so that the GencodeGeneId and
+GencodeTranscriptId fields hold the ENSG... and ENST... ids of the GENCODE genes and transcripts, as in the hg38 catalog,
+rather than the mapping's own CHM13_G... and LOFF_G... ids. That conversion leaves out the novel isoforms that CAT
+predicted, keeps the rRNA gene copies of the rDNA arrays (which have no Ensembl ids) under their LOFF_G... ids, and adds
+the UTRs that the CAT transcripts lack, so that GencodeGeneRegion reports 5' and 3' UTRs as it does for hg38.
 
 The CentromereAndSatelliteRegion field holds the class of the centromeric satellite region (from the Miga lab's CenSat
 annotation) that each locus overlaps, such as HSat3 or ct. About 1.3 million loci lie in CHM13's satellite and rDNA
@@ -145,7 +148,9 @@ remote_inputs = [
     # The UCSC chain file recommended by Genovese et al. 2024 (https://doi.org/10.1093/bioinformatics/btae038) rather
     # than hg38-chm13v2.over.chain.gz, which has erroneous mappings caused by a chaintools bug.
     NS(name="Hg38ToCHM13ChainFile", url="http://hgdownload.soe.ucsc.edu/goldenPath/hg38/liftOver/hg38ToHs1.over.chain.gz"),
-    NS(name="GencodeCatLiftoffGTF", url="https://hgdownload.soe.ucsc.edu/hubs/GCA/009/914/755/GCA_009914755.4/genes/catLiftOffGenesV1.gtf.gz"),
+    # The T2T consortium's CAT/Liftoff mapping of GENCODE v35 onto CHM13. UCSC's catLiftOffGenesV1.gtf.gz is made from
+    # this file but drops the source_gene and source_transcript attributes that hold the Ensembl ids.
+    NS(name="GencodeCatLiftoffGFF3", url="https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/annotation/chm13v2.0_GENCODEv35_CAT_Liftoff.vep.gff3.gz"),
     NS(name="RefseqGTF", url="https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/genes/hs1.ncbiRefSeq.gtf.gz"),
     # The Miga lab's centromeric satellite (CenSat) annotation of CHM13, made with the same workflow as the hg38 one
     # that the hg38 pipeline uses, so that both catalogs' CentromereAndSatelliteRegion fields have the same classes.
@@ -363,11 +368,18 @@ run(f"""python3 -u {base_dir}/scripts/remove_loci_near_chromosome_ends.py \
     -o {final_merged_catalog_path} \
     {output_prefix}.final_merged.with_all_known_disease_associated_loci.json.gz""", step_number=11)
 
+# Convert the CAT/Liftoff gene annotation to a GTF with the Ensembl ids of the GENCODE genes and transcripts, and with
+# UTR records. This shares step 12's number so that rerunning step 12 reapplies it.
+gencode_gtf_with_ensembl_ids_path = os.path.abspath("chm13v2.0_GENCODEv35_CAT_Liftoff.with_Ensembl_ids.gtf.gz")
+run(f"""python3 -u {base_dir}/scripts/convert_CHM13_CAT_Liftoff_gene_annotation_to_gtf_with_Ensembl_ids.py \
+    -o {gencode_gtf_with_ensembl_ids_path} \
+    {input_paths['GencodeCatLiftoffGFF3']}""", step_number=12)
+
 annotated_catalog_path = f"{output_prefix}.EH.with_annotations.json.gz"
 run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
     --reference-fasta {args.chm13_reference_fasta} \
     --gene-models-source gencode \
-    --gencode-gtf {input_paths['GencodeCatLiftoffGTF']} \
+    --gencode-gtf {gencode_gtf_with_ensembl_ids_path} \
     --gene-models-source refseq \
     --refseq-gtf {input_paths['RefseqGTF']} \
     --skip-mappability-annotations \
