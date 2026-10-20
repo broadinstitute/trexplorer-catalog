@@ -20,9 +20,11 @@ The GFF3's CDS records include the stop codon, as is usual in GFF3, while GENCOD
 codon and counts the stop codon as part of the 3' UTR. So the script removes each transcript's stop codon (from its
 stop_codon records) from its CDS records. CAT transcripts have exon and CDS records but no UTR records, so the GTF then
 gets a UTR record for each part of a coding transcript's exons that lies outside its CDS, which, as in GENCODE's GTF,
-includes the stop codon. str_analysis then labels each UTR as a 5' or 3' UTR from its position relative to the CDS. The
-GFF3's own UTR records, which only some Liftoff transcripts have, are replaced by these. Its gene, intron, start_codon
-and stop_codon records aren't written to the GTF, since str_analysis doesn't use them.
+includes the stop codon. Each UTR record is written as a 5UTR or 3UTR record, labeled from its position relative to its
+own copy's CDS. Plain UTR records would leave the labeling to str_analysis, which compares a UTR with the first CDS
+record that has the same transcript id, and so with another copy's CDS when several copies share an ENST id. The GFF3's
+own UTR records, which only some Liftoff transcripts have, are replaced by these. Its gene, intron, start_codon and
+stop_codon records aren't written to the GTF, since str_analysis doesn't use them.
 """
 
 import argparse
@@ -114,8 +116,8 @@ def remove_stop_codons_from_CDS_intervals(CDS_intervals, stop_codon_intervals):
     return remaining_CDS_intervals
 
 
-def compute_UTR_intervals(exon_intervals, CDS_intervals):
-    """Returns the parts of a transcript's exons that lie outside its CDS.
+def compute_5UTR_and_3UTR_intervals(exon_intervals, CDS_intervals, strand):
+    """Returns the parts of a transcript's exons that lie outside its CDS, each labeled as a 5' or 3' UTR.
 
     Given a CDS that ends before the stop codon, as returned by remove_stop_codons_from_CDS_intervals, these include
     the stop codon, like GENCODE's UTR records.
@@ -123,21 +125,29 @@ def compute_UTR_intervals(exon_intervals, CDS_intervals):
     Args:
         exon_intervals (list): (start_1based, end_1based) of each exon
         CDS_intervals (list): (start_1based, end_1based) of each part of the CDS
+        strand (str): the transcript's strand, "+" or "-"
 
     Returns:
-        list: (start_1based, end_1based) of each UTR part, sorted by start, or an empty list for a non-coding transcript
+        list: (feature_type, start_1based, end_1based) of each UTR part, where feature_type is the GTF feature type
+            "5UTR" or "3UTR", sorted by start, or an empty list for a non-coding transcript
     """
     if not CDS_intervals:
         return []
 
+    if strand not in ("+", "-"):
+        raise ValueError(f"Can't tell the 5' UTR from the 3' UTR of a coding transcript on strand '{strand}'")
+
+    UTR_feature_type_before_CDS, UTR_feature_type_after_CDS = ("5UTR", "3UTR") if strand == "+" else ("3UTR", "5UTR")
     CDS_start_1based = min(start_1based for start_1based, _ in CDS_intervals)
     CDS_end_1based = max(end_1based for _, end_1based in CDS_intervals)
     UTR_intervals = []
     for exon_start_1based, exon_end_1based in sorted(exon_intervals):
         if exon_start_1based < CDS_start_1based:
-            UTR_intervals.append((exon_start_1based, min(exon_end_1based, CDS_start_1based - 1)))
+            UTR_intervals.append(
+                (UTR_feature_type_before_CDS, exon_start_1based, min(exon_end_1based, CDS_start_1based - 1)))
         if exon_end_1based > CDS_end_1based:
-            UTR_intervals.append((max(exon_start_1based, CDS_end_1based + 1), exon_end_1based))
+            UTR_intervals.append(
+                (UTR_feature_type_after_CDS, max(exon_start_1based, CDS_end_1based + 1), exon_end_1based))
 
     return UTR_intervals
 
@@ -147,7 +157,7 @@ def format_gtf_line(transcript_record, feature_type, start_1based, end_1based, g
 
     Args:
         transcript_record (dict): chrom, source and strand of the transcript
-        feature_type (str): transcript, exon, CDS or UTR
+        feature_type (str): transcript, exon, CDS, 5UTR or 3UTR
         start_1based (int): start of the record
         end_1based (int): end of the record
         gtf_ids (dict): attributes returned by get_gtf_ids_of_transcript
@@ -222,15 +232,15 @@ def main():
             CDS_intervals_without_stop_codon = remove_stop_codons_from_CDS_intervals(
                 CDS_intervals_by_transcript_id[transcript_id], stop_codon_intervals_by_transcript_id[transcript_id])
             f.write(format_gtf_line(transcript_record, "transcript", *transcript_record["interval"], gtf_ids))
-            for feature_type, intervals in [
-                ("exon", sorted(exon_intervals_by_transcript_id[transcript_id])),
-                ("CDS", CDS_intervals_without_stop_codon),
-                ("UTR", compute_UTR_intervals(
-                    exon_intervals_by_transcript_id[transcript_id], CDS_intervals_without_stop_codon)),
-            ]:
-                for start_1based, end_1based in intervals:
-                    f.write(format_gtf_line(transcript_record, feature_type, start_1based, end_1based, gtf_ids))
-                    counters[f"{feature_type} records written"] += 1
+            for feature_type, start_1based, end_1based in (
+                [("exon", *interval) for interval in sorted(exon_intervals_by_transcript_id[transcript_id])]
+                + [("CDS", *interval) for interval in CDS_intervals_without_stop_codon]
+                + compute_5UTR_and_3UTR_intervals(
+                    exon_intervals_by_transcript_id[transcript_id], CDS_intervals_without_stop_codon,
+                    transcript_record["strand"])
+            ):
+                f.write(format_gtf_line(transcript_record, feature_type, start_1based, end_1based, gtf_ids))
+                counters[f"{feature_type} records written"] += 1
 
     print(f"Wrote {args.output_gtf_path}:")
     for description, count in sorted(counters.items()):

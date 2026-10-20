@@ -29,6 +29,8 @@ NOVEL_ISOFORM_ATTRIBUTES = dict(
 RRNA_GENE_COPY_ATTRIBUTES = dict(
     source_transcript="rRNA_T1", source_gene="LOFF_G0010000", source_gene_common_name="RNA45S1", biotype="rRNA",
     transcript_biotype="rRNA", transcript_id="LOFF_T0010000", gene_id="LOFF_G0010000", gene_name="RNA45S1")
+# a second copy of the GENCODE transcript, 2kb downstream of the first, that gets the same ENST id in the GTF
+SECOND_COPY_OF_GENCODE_TRANSCRIPT_ATTRIBUTES = dict(GENCODE_TRANSCRIPT_ATTRIBUTES, transcript_id="CHM13_T0000003")
 
 GFF3_LINES = [
     "##gff-version 3",
@@ -46,6 +48,12 @@ GFF3_LINES = [
     make_gff3_line("CAT", "exon", 100, 900, "+", ID="exon:CHM13_T0000002:0", **NOVEL_ISOFORM_ATTRIBUTES),
     make_gff3_line("Liftoff", "transcript", 1000, 1100, "-", ID="LOFF_T0010000", **RRNA_GENE_COPY_ATTRIBUTES),
     make_gff3_line("Liftoff", "exon", 1000, 1100, "-", ID="exon:LOFF_T0010000:0", **RRNA_GENE_COPY_ATTRIBUTES),
+    make_gff3_line("CAT", "transcript", 2100, 2400, "+", ID="CHM13_T0000003", **SECOND_COPY_OF_GENCODE_TRANSCRIPT_ATTRIBUTES),
+    make_gff3_line("CAT", "exon", 2100, 2200, "+", ID="exon:CHM13_T0000003:0", **SECOND_COPY_OF_GENCODE_TRANSCRIPT_ATTRIBUTES),
+    make_gff3_line("CAT", "exon", 2300, 2400, "+", ID="exon:CHM13_T0000003:1", **SECOND_COPY_OF_GENCODE_TRANSCRIPT_ATTRIBUTES),
+    make_gff3_line("CAT", "CDS", 2150, 2200, "+", ID="CDS:CHM13_T0000003:0", **SECOND_COPY_OF_GENCODE_TRANSCRIPT_ATTRIBUTES),
+    make_gff3_line("CAT", "CDS", 2300, 2353, "+", ID="CDS:CHM13_T0000003:1", **SECOND_COPY_OF_GENCODE_TRANSCRIPT_ATTRIBUTES),
+    make_gff3_line("CAT", "stop_codon", 2351, 2353, "+", ID="stop:CHM13_T0000003", **SECOND_COPY_OF_GENCODE_TRANSCRIPT_ATTRIBUTES),
 ]
 
 GENCODE_TRANSCRIPT_GTF_ATTRIBUTES = ('gene_id "ENSG00000000001.5"; transcript_id "ENST00000000001.2"; '
@@ -93,15 +101,23 @@ class TestConvertCHM13CATLiftoffGeneAnnotationToGtf(unittest.TestCase):
         # a transcript without a stop codon record keeps its CDS
         self.assertEqual(script.remove_stop_codons_from_CDS_intervals([(100, 200)], []), [(100, 200)])
 
-    def test_compute_UTR_intervals(self):
+    def test_compute_5UTR_and_3UTR_intervals(self):
         # the exons, CDS and UTRs of GENCODE v50's ENST00000641515 (OR4F5), whose 3' UTR starts with the stop codon
         self.assertEqual(
-            script.compute_UTR_intervals([(65419, 65433), (65520, 65573), (69037, 71585)],
-                                         [(65565, 65573), (69037, 70005)]),
-            [(65419, 65433), (65520, 65564), (70006, 71585)])
+            script.compute_5UTR_and_3UTR_intervals([(65419, 65433), (65520, 65573), (69037, 71585)],
+                                                   [(65565, 65573), (69037, 70005)], "+"),
+            [("5UTR", 65419, 65433), ("5UTR", 65520, 65564), ("3UTR", 70006, 71585)])
+        # on the - strand, the 5' UTR is the part after the CDS
+        self.assertEqual(
+            script.compute_5UTR_and_3UTR_intervals([(100, 200), (300, 400)], [(150, 200), (300, 350)], "-"),
+            [("3UTR", 100, 149), ("5UTR", 351, 400)])
         # a CDS that spans whole exons leaves no UTR, and a non-coding transcript has no UTRs
-        self.assertEqual(script.compute_UTR_intervals([(100, 200), (300, 400)], [(100, 200), (300, 400)]), [])
-        self.assertEqual(script.compute_UTR_intervals([(100, 200)], []), [])
+        self.assertEqual(
+            script.compute_5UTR_and_3UTR_intervals([(100, 200), (300, 400)], [(100, 200), (300, 400)], "+"), [])
+        self.assertEqual(script.compute_5UTR_and_3UTR_intervals([(100, 200)], [], "."), [])
+        # a coding transcript without a strand has no 5' or 3' side
+        with self.assertRaises(ValueError):
+            script.compute_5UTR_and_3UTR_intervals([(100, 200)], [(150, 200)], ".")
 
     def test_main(self):
         gff3_path = os.path.join(self.temp_dir, "annotation.gff3.gz")
@@ -115,19 +131,25 @@ class TestConvertCHM13CATLiftoffGeneAnnotationToGtf(unittest.TestCase):
         with gzip.open(gtf_path, "rt") as f:
             gtf_lines = f.read().splitlines()
 
-        # the novel isoform, and the gene, intron, start_codon and stop_codon records are left out
+        # the novel isoform, and the gene, intron, start_codon and stop_codon records are left out. The second copy of
+        # the GENCODE transcript gets the same ENST id as the first.
+        GENCODE_transcript_records = [
+            ("transcript", 100, 400), ("exon", 100, 200), ("exon", 300, 400), ("CDS", 150, 200), ("CDS", 300, 350),
+            ("5UTR", 100, 149), ("3UTR", 351, 400),
+        ]
         self.assertEqual(gtf_lines, [
             f"chr1\tCAT\t{feature_type}\t{start_1based}\t{end_1based}\t.\t+\t.\t{GENCODE_TRANSCRIPT_GTF_ATTRIBUTES}"
-            for feature_type, start_1based, end_1based in [
-                ("transcript", 100, 400), ("exon", 100, 200), ("exon", 300, 400), ("CDS", 150, 200), ("CDS", 300, 350),
-                ("UTR", 100, 149), ("UTR", 351, 400),
-            ]
+            for feature_type, start_1based, end_1based in GENCODE_transcript_records
         ] + [
             f"chr1\tLiftoff\t{feature_type}\t1000\t1100\t.\t-\t.\t{RRNA_GENE_COPY_GTF_ATTRIBUTES}"
             for feature_type in ("transcript", "exon")
+        ] + [
+            f"chr1\tCAT\t{feature_type}\t{start_1based + 2000}\t{end_1based + 2000}\t.\t+\t.\t{GENCODE_TRANSCRIPT_GTF_ATTRIBUTES}"
+            for feature_type, start_1based, end_1based in GENCODE_transcript_records
         ])
 
-        # str_analysis reads the GTF, labels the UTRs as 5' and 3' UTRs, and drops the Ensembl version suffixes
+        # str_analysis reads the GTF, keeps the 5' and 3' UTR labels, and drops the Ensembl version suffixes. The
+        # second copy's UTRs keep their own labels, rather than being compared with the first copy's CDS.
         with mock.patch("builtins.print"):
             self.assertEqual(compute_genomic_region_of_interval("chr1", 120, 130, gtf_path),
                              ("5' UTR", "GENE1", "ENSG00000000001", "ENST00000000001"))
@@ -137,6 +159,10 @@ class TestConvertCHM13CATLiftoffGeneAnnotationToGtf(unittest.TestCase):
                              ("3' UTR", "GENE1", "ENSG00000000001", "ENST00000000001"))
             self.assertEqual(compute_genomic_region_of_interval("chr1", 1020, 1030, gtf_path),
                              ("exon", "RNA45S1", "LOFF_G0010000", "LOFF_T0010000"))
+            self.assertEqual(compute_genomic_region_of_interval("chr1", 2120, 2130, gtf_path),
+                             ("5' UTR", "GENE1", "ENSG00000000001", "ENST00000000001"))
+            self.assertEqual(compute_genomic_region_of_interval("chr1", 2360, 2380, gtf_path),
+                             ("3' UTR", "GENE1", "ENSG00000000001", "ENST00000000001"))
 
 
 if __name__ == "__main__":
