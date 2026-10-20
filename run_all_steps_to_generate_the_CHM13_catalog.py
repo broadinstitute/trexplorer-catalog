@@ -378,11 +378,28 @@ run(f"""python3 -u -m str_analysis.annotate_and_filter_str_catalog --verbose \
     --output-path {annotated_catalog_path} \
     {final_merged_catalog_path}""", step_number=12)
 
+# Give each locus the Hg38LocusId of its hg38 counterpart. When a lifted hg38 locus matches a known disease-associated
+# locus or a perfect repeat, step 11's merge keeps the earlier locus and discards the lifted one along with its
+# Hg38LocusId, so this finds the counterpart again among the lifted loci, using step 11's thresholds. Known
+# disease-associated loci that still have no match (like NOTCH2NLC and XYLT1, whose hg38 loci don't lift over) get the
+# hg38 LocusId that the known disease-associated loci catalog's TRExplorerV2 field gives for their label. It also adds
+# an Hg38LocusMatchType field (SameBoundaries, Hg38LocusIsWider, Hg38LocusIsNarrower, Hg38LocusIsShifted or
+# SameKnownDiseaseAssociatedLocus). These commands share step 12's number so that rerunning step 12 reapplies them.
+run(f"""python3 -u {base_dir}/scripts/add_hg38_locus_ids_using_lifted_over_hg38_catalog.py \
+    --lifted-over-hg38-catalog {filtered_source_catalog_paths['TRExplorerCHM13:LiftedOverFromTRExplorerHg38']} \
+    --min-overlap-fraction 0.66 \
+    --min-jaccard-similarity 0.66 \
+    --motif-length-match-sufficient-for-VNTRs \
+    --known-disease-associated-loci {known_disease_associated_loci_for_annotation_path} \
+    --output-catalog-json-path {annotated_catalog_path}.with_hg38_locus_ids.json.gz \
+    {annotated_catalog_path}""", step_number=12)
+run(f"mv {annotated_catalog_path}.with_hg38_locus_ids.json.gz {annotated_catalog_path}", step_number=12)
+
 # As in the hg38 pipeline, label the loci that the exact-boundary match above missed using the known disease-associated
-# loci catalog's TRExplorerV2 field, which holds hg38 LocusIds. The loci lifted from the hg38 catalog keep their hg38
-# LocusId in the Hg38LocusId field. Since step 11 appends every known disease-associated locus's exact definition, this
-# is a safety net that labels nothing with the current inputs. These commands share step 12's number so that rerunning
-# step 12 reapplies them.
+# loci catalog's TRExplorerV2 field, which holds hg38 LocusIds. The step above put each locus's hg38 LocusId in the
+# Hg38LocusId field. Since step 11 appends every known disease-associated locus's exact definition, this is a safety
+# net that labels nothing with the current inputs. These commands share step 12's number so that rerunning step 12
+# reapplies them.
 run(f"""python3 {base_dir}/scripts/add_known_disease_associated_locus_labels_using_TRExplorerV2_ids.py \
     --known-disease-associated-loci {known_disease_associated_loci_for_annotation_path} \
     --catalog-locus-id-field Hg38LocusId \

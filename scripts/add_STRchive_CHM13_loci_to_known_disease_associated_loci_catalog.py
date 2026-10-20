@@ -39,6 +39,9 @@ def make_record_from_STRchive_coordinates(hg38_record, strchive_locus):
         "GeneRegion": hg38_record.get("GeneRegion"),
         "GeneId": hg38_record.get("GeneId"),
         "Diseases": hg38_record["Diseases"],
+        # the LocusId of the hg38 TRExplorer catalog's definition of this locus, which the CHM13 catalog's
+        # Hg38LocusId falls back to for this locus, since its hg38 definition didn't lift over
+        "TRExplorerV2": hg38_record.get("TRExplorerV2"),
         "STRchiveId": strchive_locus["id"],
     }
 

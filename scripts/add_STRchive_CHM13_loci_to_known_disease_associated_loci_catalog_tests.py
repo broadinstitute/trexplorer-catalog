@@ -16,7 +16,7 @@ class TestMakeRecordsForLociThatDidNotLiftOver(unittest.TestCase):
         hg38_records = [
             {"LocusId": "HTT", "Diseases": [{"Symbol": "HD"}]},                     # lifted over
             {"LocusId": "CNBP", "Diseases": [{"Symbol": "DM2"}], "Gene": "CNBP", "GeneRegion": "intron",
-             "GeneId": "ENSG00000169714"},                                         # didn't lift over
+             "GeneId": "ENSG00000169714", "TRExplorerV2": "3-129172576-129172656-CAGG"},  # didn't lift over
             {"LocusId": "DMD", "Diseases": []},                                     # no diseases
             {"LocusId": "RUNX2__6-45422750-45422801-GCN", "Diseases": [{"Symbol": "CCD"}]},  # alternative definition
             {"LocusId": "TMEM185A", "Diseases": [{"Symbol": "FRAXF"}]},             # no STRchive CHM13 definition
@@ -37,7 +37,7 @@ class TestMakeRecordsForLociThatDidNotLiftOver(unittest.TestCase):
             "LocusId": "CNBP", "LocusStructure": "(CAGG)*", "ReferenceRegion": "chr3:1000-1030",
             "MainReferenceRegion": "chr3:1000-1030", "VariantType": "Repeat", "RepeatUnit": "CAGG", "Gene": "CNBP",
             "GeneRegion": "intron", "GeneId": "ENSG00000169714", "Diseases": [{"Symbol": "DM2"}],
-            "STRchiveId": "DM2_CNBP",
+            "TRExplorerV2": "3-129172576-129172656-CAGG", "STRchiveId": "DM2_CNBP",
         }])
         self.assertEqual(locus_ids_without_STRchive_definition, ["TMEM185A"])
 
