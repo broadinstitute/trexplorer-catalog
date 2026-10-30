@@ -70,6 +70,7 @@ def main():
         "TRExplorerV2:Garg2021",
         "TRExplorerV2:Mukamel2021",
         "TRExplorerV2:Annear2021",
+        "TRExplorerV2:Gymrek2016",
         "TRExplorerV2:Hause2016",
         "TRExplorerV2:VamosV3",
         "TRExplorerV2.1:ExtendedLocusBoundaries",
