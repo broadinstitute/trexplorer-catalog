@@ -24,6 +24,10 @@ from str_analysis.utils.file_utils import file_exists, tee_stdout_and_stderr_to_
 import run_all_steps_helpers
 from run_all_steps_helpers import chdir, is_bgzipped, tabix_coordinate_flags
 
+# The install block above doesn't upgrade an existing install, so check that the installed merge_loci doesn't let the
+# loci it discarded make later loci redundant, which cost the 10/19/2026 build of the v2.1 catalog 3,185 loci
+run_all_steps_helpers.check_that_merge_loci_ignores_discarded_loci()
+
 
 VERSION = "2.1"
 
@@ -366,6 +370,11 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         for source_catalog in source_catalogs_in_order if source_catalog.merge == "v2b"
     ])
 
+    # --only-compare-loci-from-different-catalogs keeps this merge from comparing the merged_v2a loci with each other
+    # at this merge's lower Jaccard similarity threshold. It would otherwise discard some of them, which the final merge
+    # adds back, and since merge_loci doesn't let discarded loci make later loci redundant, the literature loci that
+    # only overlap those would then be kept too, next to the merged_v2a loci they overlap. On the 10/19/2026 build's
+    # inputs it also lets no two loci of the same literature source through that overlap each other.
     run(f"""python3 -u -m str_analysis.merge_loci --verbose \
         --add-found-in-fields \
         --output-format JSON \
@@ -374,6 +383,7 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --overlap-fraction 0.66 \
         --motif-length-match-sufficient-for-VNTRs \
         --min-jaccard-similarity 0.2 \
+        --only-compare-loci-from-different-catalogs \
         --output-prefix {output_prefix}.merged_v2b \
         {source_catalog_paths_for_merge_command_v2b}""", step_number=12)
 

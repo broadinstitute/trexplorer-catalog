@@ -5,10 +5,14 @@ dry_run, only_step, start_with_step and end_with_step. Each pipeline script bind
 so its call sites can stay run(command, step_number=N).
 """
 
+import gzip
+import json
 import os
 import re
 import requests
 import subprocess
+import sys
+import tempfile
 
 
 def run(command, step_number=None, *, args):
@@ -38,6 +42,37 @@ def run(command, step_number=None, *, args):
             else:
                 print(f"\n--- $ {command}")
             subprocess.run(command, shell=True, check=True)
+
+def check_that_merge_loci_ignores_discarded_loci():
+    """Raises RuntimeError unless the installed str_analysis.merge_loci keeps a locus that only matches a locus it
+    already discarded.
+
+    A merge_loci from before that str-analysis fix still compares each new locus with the loci it discarded, and drops
+    the new locus if one of them matches it, although nothing in the output describes it. The pipelines' merges then
+    silently lose loci (3,185 of them in the hg38 v2.1 catalog of 10/19/2026). This merges three (A)* loci with the
+    pipelines' keep-first and 0.66 Jaccard similarity settings: the second is redundant with the first (Jaccard
+    similarity 18/24), and the third only with the second (24/34, but 18/34 with the first), so the first and the third
+    should be kept.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        catalog_paths = []
+        for i, region in enumerate(["chr1:1000-1018", "chr1:1000-1024", "chr1:1000-1034"]):
+            catalog_paths.append(os.path.join(temp_dir, f"catalog{i}.json"))
+            with open(catalog_paths[-1], "wt") as f:
+                json.dump([{"LocusId": f"locus{i}", "LocusStructure": "(A)*", "ReferenceRegion": region,
+                            "VariantType": "Repeat"}], f)
+        output_prefix = os.path.join(temp_dir, "merged")
+        subprocess.run([
+            sys.executable, "-m", "str_analysis.merge_loci", "--output-format", "JSON",
+            "--overlapping-loci-action", "keep-first", "--overlap-fraction", "0.66", "--min-jaccard-similarity", "0.66",
+            "--output-prefix", output_prefix, *catalog_paths], check=True, capture_output=True)
+        with gzip.open(f"{output_prefix}.json.gz", "rt") as f:
+            locus_ids = [record["LocusId"] for record in json.load(f)]
+
+    if locus_ids != ["locus0", "locus2"]:
+        raise RuntimeError(f"The installed str_analysis.merge_loci kept {locus_ids} rather than ['locus0', 'locus2'], "
+                           f"so it lets loci it discarded make later loci redundant. Upgrade it to a version that "
+                           f"includes str-analysis commit 383709c.")
 
 def chdir(d):
     print(f"cd {d}")
