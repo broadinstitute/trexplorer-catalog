@@ -5,6 +5,43 @@ a locus that drops out of the script's input table must lose the values an earli
 rather than keeping them forever. These helpers keep that behavior the same across scripts.
 """
 
+import collections
+import gzip
+
+import ijson
+import simplejson as json
+
+
+def write_catalog_with_a_field_added_to_each_record(
+        catalog_json_path, output_catalog_json_path, field_name, compute_field_value):
+    """Copy a catalog JSON file record by record, setting a field in each record to a computed value.
+
+    The records are streamed one at a time, since loading a whole annotated catalog takes about 20GB of memory.
+
+    Args:
+        catalog_json_path (str): path of the input catalog JSON file, which can be gzipped
+        output_catalog_json_path (str): path of the output catalog JSON file, which is gzipped if it ends with gz
+        field_name (str): the field to set, replacing any value it already has
+        compute_field_value (function): returns the field's value for a record
+
+    Returns:
+        collections.Counter: the number of records that got each value
+    """
+    counts_by_value = collections.Counter()
+    with (gzip.open if catalog_json_path.endswith("gz") else open)(catalog_json_path, "rb") as f, \
+            (gzip.open if output_catalog_json_path.endswith("gz") else open)(output_catalog_json_path, "wt") as f2:
+        f2.write("[")
+        for i, record in enumerate(ijson.items(f, "item")):
+            record[field_name] = compute_field_value(record)
+            counts_by_value[record[field_name]] += 1
+
+            if i > 0:
+                f2.write(", ")
+            f2.write(json.dumps(record, use_decimal=True, indent=4))
+        f2.write("]")
+
+    return counts_by_value
+
 
 def clear_previous_annotations(record, fields):
     """Remove the calling script's own annotation fields from a catalog record.

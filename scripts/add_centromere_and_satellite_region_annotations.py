@@ -17,10 +17,9 @@ active_hor rather than active_hor(S1C1/5/19H1L)), or None if it overlaps no regi
 import argparse
 import collections
 import gzip
-import ijson
 import intervaltree
-import simplejson as json
 
+from catalog_annotation_utils import write_catalog_with_a_field_added_to_each_record
 from str_analysis.utils.misc_utils import parse_interval
 
 FIELD_NAME = "CentromereAndSatelliteRegion"
@@ -94,22 +93,10 @@ def main():
     print(f"Read {sum(len(t) for t in regions_by_chrom.values()):,d} regions from "
           f"{args.centromere_and_satellite_regions_bed}")
 
-    # stream the records one at a time, since loading a whole annotated catalog takes about 20GB of memory
-    counts_by_class = collections.Counter()
-    with (gzip.open if args.catalog_json_path.endswith("gz") else open)(args.catalog_json_path, "rb") as f, \
-            (gzip.open if args.output_catalog_json_path.endswith("gz") else open)(
-                args.output_catalog_json_path, "wt") as f2:
-        f2.write("[")
-        for i, record in enumerate(ijson.items(f, "item")):
-            chrom, start_0based, end_1based = parse_interval(record["ReferenceRegion"])
-            record[FIELD_NAME] = get_class_of_region_with_largest_overlap(
-                regions_by_chrom, chrom, start_0based, end_1based)
-            counts_by_class[record[FIELD_NAME]] += 1
-
-            if i > 0:
-                f2.write(", ")
-            f2.write(json.dumps(record, use_decimal=True, indent=4))
-        f2.write("]")
+    counts_by_class = write_catalog_with_a_field_added_to_each_record(
+        args.catalog_json_path, args.output_catalog_json_path, FIELD_NAME,
+        lambda record: get_class_of_region_with_largest_overlap(
+            regions_by_chrom, *parse_interval(record["ReferenceRegion"])))
 
     print(f"Wrote {sum(counts_by_class.values()):,d} loci to {args.output_catalog_json_path}. {FIELD_NAME} counts:")
     for region_class, count in sorted(counts_by_class.items(), key=lambda x: -x[1]):

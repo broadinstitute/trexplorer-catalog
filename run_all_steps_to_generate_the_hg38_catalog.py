@@ -180,6 +180,12 @@ additional_data_urls = [
     # The Miga lab's centromeric satellite (CenSat) annotation of hg38, made with the same workflow as the CHM13 one
     # that the CHM13 pipeline uses, so that both catalogs' CentromereAndSatelliteRegion fields have the same classes
     NS(name="CentromereAndSatelliteRegionsBed", url="https://raw.githubusercontent.com/hloucks/CenSatData/fb50a32b8ce443b9b0ea718e3c0c47b91507e59c/HG38/hg38.cenSatv1.0.bed"),
+    # UCSC's segmental duplications table, for the UCSC_SegDupMaxSequenceIdentity field
+    NS(name="UcscSegDups",                   url="https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/genomicSuperDups.txt.gz"),
+    # The hg38 segmental duplications of Vollger et al. 2022, for the Vollger2022_SegDupMaxSequenceIdentity field: a copy
+    # of annotation_bed_files/hg38.chr_only/hg38.chr_only.SDs.bed.gz from annotation_bed_files.zip in the paper's Zenodo
+    # record (https://zenodo.org/records/5502036), since Zenodo has it only inside that 492 MB zip
+    NS(name="Vollger2022SegDups",            url="https://storage.googleapis.com/tandem-repeat-catalog/v2.0/Vollger_2022_hg38.chr_only.SDs.bed.gz"),
 ]
 
 additional_data_paths = {}
@@ -476,6 +482,26 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
         --output-catalog-json-path {annotated_catalog_path}.with_centromere_and_satellite_regions.json.gz \
         {annotated_catalog_path}""", step_number=16)
     run(f"mv {annotated_catalog_path}.with_centromere_and_satellite_regions.json.gz {annotated_catalog_path}", step_number=16)
+
+    # Label each locus that lies inside a pseudoautosomal region with PAR1 or PAR2. These commands also share step
+    # 16's number.
+    run(f"""python3 {base_dir}/scripts/add_pseudoautosomal_region_annotations.py \
+        --genome-version hg38 \
+        --output-catalog-json-path {annotated_catalog_path}.with_pseudoautosomal_regions.json.gz \
+        {annotated_catalog_path}""", step_number=16)
+    run(f"mv {annotated_catalog_path}.with_pseudoautosomal_regions.json.gz {annotated_catalog_path}", step_number=16)
+
+    # Label each locus with the highest sequence identity among the segmental duplications that overlap it, if any:
+    # once with UCSC's segdups and once with those of Vollger et al. 2022. These commands also share step 16's number.
+    for segdups_source, segdups_file_path in [("ucsc", additional_data_paths["UcscSegDups"]),
+                                              ("vollger2022", additional_data_paths["Vollger2022SegDups"])]:
+        run(f"""python3 {base_dir}/scripts/add_segdup_max_sequence_identity_annotations.py \
+            --segdups-file {segdups_file_path} \
+            --segdups-source {segdups_source} \
+            --genome-version hg38 \
+            --output-catalog-json-path {annotated_catalog_path}.with_segdups.json.gz \
+            {annotated_catalog_path}""", step_number=16)
+        run(f"mv {annotated_catalog_path}.with_segdups.json.gz {annotated_catalog_path}", step_number=16)
 
     # create a version of the ExpansionHunter catalog without extra annotations
     run(f"""python3 {base_dir}/scripts/write_expansion_hunter_catalog_without_annotations.py \

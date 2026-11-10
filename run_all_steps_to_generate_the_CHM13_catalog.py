@@ -189,6 +189,10 @@ remote_inputs = [
     # It differs from the T2T consortium's chm13v2.0_censat_v2.1.bed, whose class names (hsat3, hor, bsat) don't match
     # the hg38 file's and whose ct regions also include 5 Mb of each chromosome arm next to the centromere.
     NS(name="CentromereAndSatelliteRegionsBed", url="https://raw.githubusercontent.com/hloucks/CenSatData/fb50a32b8ce443b9b0ea718e3c0c47b91507e59c/CHM13/chm13v2.0.cenSatv2.1.bed"),
+    # The T2T consortium's segmental duplications from Vollger et al. 2022, for the Vollger2022_SegDupMaxSequenceIdentity
+    # field. The full version of the file has the fracMatch (sequence identity) column that the simple one lacks. There's
+    # no UCSC_SegDupMaxSequenceIdentity field for CHM13, since UCSC's CHM13 segdup track is this same set.
+    NS(name="Vollger2022SegDups", url="https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/annotation/chm13v2.0_SD.full.bed"),
 ]
 
 input_paths = {}
@@ -469,6 +473,24 @@ run(f"""python3 {base_dir}/scripts/add_centromere_and_satellite_region_annotatio
     --output-catalog-json-path {annotated_catalog_path}.with_centromere_and_satellite_regions.json.gz \
     {annotated_catalog_path}""", step_number=12)
 run(f"mv {annotated_catalog_path}.with_centromere_and_satellite_regions.json.gz {annotated_catalog_path}", step_number=12)
+
+# Label each locus that lies inside a pseudoautosomal region with PAR1 or PAR2. These commands also share step 12's
+# number.
+run(f"""python3 {base_dir}/scripts/add_pseudoautosomal_region_annotations.py \
+    --genome-version chm13 \
+    --output-catalog-json-path {annotated_catalog_path}.with_pseudoautosomal_regions.json.gz \
+    {annotated_catalog_path}""", step_number=12)
+run(f"mv {annotated_catalog_path}.with_pseudoautosomal_regions.json.gz {annotated_catalog_path}", step_number=12)
+
+# Label each locus with the highest sequence identity among the segmental duplications that overlap it, if any. These
+# commands also share step 12's number.
+run(f"""python3 {base_dir}/scripts/add_segdup_max_sequence_identity_annotations.py \
+    --segdups-file {input_paths['Vollger2022SegDups']} \
+    --segdups-source vollger2022 \
+    --genome-version chm13 \
+    --output-catalog-json-path {annotated_catalog_path}.with_segdups.json.gz \
+    {annotated_catalog_path}""", step_number=12)
+run(f"mv {annotated_catalog_path}.with_segdups.json.gz {annotated_catalog_path}", step_number=12)
 
 # Lift the hg38 catalog's variation clusters over to CHM13, using the Hg38LocusId field added above, and annotate each
 # locus with its variation cluster as the hg38 pipeline does. These commands also share step 12's number.
