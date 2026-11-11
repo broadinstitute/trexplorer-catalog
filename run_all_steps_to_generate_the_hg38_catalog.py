@@ -773,10 +773,17 @@ for motif_size_label, min_motif_size, max_motif_size, release_tar_gz_path in [
 
         run(f"python3 -m str_analysis.compute_catalog_stats --reference-fasta {args.hg38_reference_fasta} --verbose {filtered_comparison_catalog_path}", step_number=60)
 
+        # merge_loci keeps every record it reads in memory, which takes tens of GB for the annotated catalog with all its
+        # fields, so --discard-extra-fields-from-input-catalogs keeps only the locus definition fields of each record
+        # (LocusId, ReferenceRegion, LocusStructure and VariantType). The merge stats don't depend on the other fields.
+        # The merged catalog that merge_loci also writes, {catalog_name}.json.gz, which nothing reads, only has these 4
+        # fields, in an order that can differ between runs, and its Source is the input file's name rather than each
+        # locus's source.
         run(f"""python3 -u -m str_analysis.merge_loci \
             --output-prefix {catalog_name} \
             --output-format JSON \
             --overlapping-loci-action keep-first \
+            --discard-extra-fields-from-input-catalogs \
             --verbose \
             --write-merge-stats-tsv \
             {annotated_catalog_path} \

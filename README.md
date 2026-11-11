@@ -8,6 +8,8 @@ This repo contains a genome-wide TR catalog that stratifies TRs into 2 groups:
 
 TRExplorer catalog [release v2.0](https://github.com/broadinstitute/tandem-repeat-catalogs/releases/tag/v2.0) is now available. 
 
+Among other changes, the [v2.1 pre-release](https://github.com/broadinstitute/trexplorer-catalog/releases/tag/v2.1) adds these annotation fields to the `*.EH.with_annotations.json.gz` and `*.EH.with_annotations.tsv.gz` files: `CentromereAndSatelliteRegion`, `PseudoautosomalRegion`, `UCSC_SegDupMaxSequenceIdentity` and `Vollger2022_SegDupMaxSequenceIdentity`. See its release notes for what each one holds.
+
 The [http://trexplorer.broadinstitute.org](http://trexplorer.broadinstitute.org) companion portal supports interactive exploration, visualization, filtering, and export of the catalog.
 
 See the `Using the TRExplorer Catalog` section of the manuscript below for practical considerations on how to use these resources.
