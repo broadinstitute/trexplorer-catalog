@@ -7,18 +7,19 @@ side), so a locus in either copy gets the pair's identity:
   genomicSuperDups.txt.gz), made with the WGAC method (Bailey et al. 2001, 2002): duplicated regions that are mostly
   1 kb or longer, with at least 90% identity. Besides the main chromosomes, it has pairs whose other copy is on an
   unplaced or unlocalized contig (chrUn_*, *_random), which are kept since those contigs are part of the reference
-  that reads align to. It has no alt or fix patch contigs. UCSC has no table like it for CHM13: its CHM13 segdup
-  track is the Vollger et al. 2022 set.
+  that reads align to. It has no alt or fix patch contigs. UCSC's hg19 table (https://hgdownload.soe.ucsc.edu/
+  goldenPath/hg19/database/genomicSuperDups.txt.gz) has the same columns. UCSC has no table like it for CHM13: its
+  CHM13 segdup track is the Vollger et al. 2022 set.
 - vollger2022: the segdups of Vollger et al. 2022, made with SEDEF, also mostly 1 kb or longer with at least 90%
   identity. For CHM13 they're the T2T consortium's chm13v2.0_SD.full.bed (https://s3-us-west-2.amazonaws.com/
   human-pangenomics/T2T/CHM13/assemblies/annotation/chm13v2.0_SD.full.bed). For hg38 they're the paper's
   hg38.chr_only.SDs.bed.gz, from annotation_bed_files.zip in its Zenodo record (https://zenodo.org/records/5502036),
   which covers only the main chromosomes. The two files have the same columns.
 
-The references that the hg38 and CHM13 catalogs are made from mask the chrY pseudoautosomal regions (PARs) with Ns, so
-reads can't align to a copy there. Pairs whose other copy overlaps a chrY PAR by at least 1 bp are skipped, which leaves
-the chrX PAR loci with the identities of their other segdups. The Vollger et al. 2022 files pair the chrX PARs with the
-chrY PARs, while UCSC's hg38 table has no pairs whose other copy overlaps a chrY PAR. A pair whose other copy only
+The references that the hg38, CHM13 and hg19 catalogs are made from mask the chrY pseudoautosomal regions (PARs) with
+Ns, so reads can't align to a copy there. Pairs whose other copy overlaps a chrY PAR by at least 1 bp are skipped, which
+leaves the chrX PAR loci with the identities of their other segdups. The Vollger et al. 2022 files and UCSC's hg19
+table pair the chrX PARs with the chrY PARs, while UCSC's hg38 table has no pairs whose other copy overlaps a chrY PAR. A pair whose other copy only
 partly overlaps a chrY PAR is skipped whole, so the few loci next to a PAR boundary that only such a pair covers (2 in
 the hg38 catalog, 1 in CHM13) get None.
 
@@ -50,7 +51,7 @@ def get_masked_chry_pars(genome_version):
     """Returns the chrY PARs of a reference genome, which the catalog's reference masks with Ns.
 
     Args:
-        genome_version (str): hg38 or chm13
+        genome_version (str): a key of PSEUDOAUTOSOMAL_REGIONS_BY_GENOME_VERSION, eg. hg38
 
     Returns:
         list: (chromosome, 0-based start, end) tuples, with chromosome names that start with chr as in the segdup files

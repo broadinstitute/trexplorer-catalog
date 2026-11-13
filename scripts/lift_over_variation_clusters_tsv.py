@@ -2,26 +2,28 @@
 
 The variation clusters TSV (genome_clusters-v2.tsv.gz, shared by Egor Dolzhenko) has one row per locus of the hg38
 catalog, keyed by its LocusId, with the variation cluster (vc_region) the locus belongs to, or with the reason (DEPTH or
-EXTENSION) that the clustering couldn't process the locus. This writes the same table for the CHM13 catalog, so that the
-hg38 pipeline's variation cluster scripts (add_variation_cluster_annotations_to_catalog.py and
+EXTENSION) that the clustering couldn't process the locus. This writes the same table for a catalog on another
+reference (the CHM13 catalog, or the hg19 catalog, which the hg19 pipeline lifts the table to in the same way), so that
+the hg38 pipeline's variation cluster scripts (add_variation_cluster_annotations_to_catalog.py and
 generate_TRGT_catalog_with_variation_clusters_and_all_repeats.py) can use it unchanged:
 
-- each locus is replaced by the CHM13 catalog locus whose Hg38LocusId is the locus's LocusId. When two CHM13 loci have
-  the same Hg38LocusId, the one with the same boundaries (Hg38LocusMatchType SameBoundaries) is used. Loci with no CHM13
-  counterpart are left out.
+- each locus is replaced by the lifted catalog's locus whose Hg38LocusId is the locus's LocusId. When two loci of the
+  lifted catalog have the same Hg38LocusId, the one with the same boundaries (Hg38LocusMatchType SameBoundaries) is
+  used. Loci with no counterpart in the lifted catalog are left out.
 - each variation cluster's vc_region is lifted with lift_over_catalog.lift_interval, which maps the bases on either side
-  of it through the chain file, and then widened, if needed, so that it contains the CHM13 loci of all of its members.
-  Its members are written as loci that aren't in a variation cluster (with their own interval as vc_region, and
+  of it through the chain file, and then widened, if needed, so that it contains the lifted catalog's loci of all of its
+  members. Its members are written as loci that aren't in a variation cluster (with their own interval as vc_region, and
   offsets of 0, which is how the TSV describes such loci) when the vc_region doesn't lift over, or when it lifts to a
-  region more than MAX_VC_REGION_SIZE_INCREASE larger than itself (like a 246bp region that lifts to 82kb, since the
-  chain has a CHM13-specific insertion between its flanks). So is a member whose CHM13 locus doesn't overlap the lifted
-  vc_region, like one that lifted through another chain to a paralogous copy megabases away, since widening the
-  cluster to reach it would turn it into a cluster of that size.
-- the offsets (how far the vc_region extends beyond the locus on each side) are recomputed from the CHM13 coordinates.
+  region more than MAX_VC_REGION_SIZE_INCREASE larger than itself (like a 246bp region that lifts to 82kb of CHM13,
+  since the chain has a CHM13-specific insertion between its flanks). So is a member whose lifted locus doesn't overlap
+  the lifted vc_region, like one that lifted through another chain to a paralogous copy megabases away, since widening
+  the cluster to reach it would turn it into a cluster of that size.
+- the offsets (how far the vc_region extends beyond the locus on each side) are recomputed from the new reference's
+  coordinates.
 
-CHM13 loci with no hg38 counterpart, like most of those in CHM13's satellite arrays, aren't in the table. Like the hg38
-catalog's loci from sources added after the table was made, they get no variation cluster annotations, and the TRGT
-catalog with variation clusters writes each of them as its own row only.
+Loci of the lifted catalog with no hg38 counterpart, like most of those in CHM13's satellite arrays, aren't in the
+table. Like the hg38 catalog's loci from sources added after the table was made, they get no variation cluster
+annotations, and the TRGT catalog with variation clusters writes each of them as its own row only.
 """
 
 import argparse
@@ -39,9 +41,9 @@ FILTER_REASONS = ("DEPTH", "EXTENSION")
 # How far lift_interval may move an anchor that falls in a chain gap, as in lift_over_catalog.py
 MAX_ANCHOR_SEARCH_DISTANCE = 20
 
-# How much larger than the source vc_region its lifted region can be. Of the 827,968 hg38 variation clusters that lift to
-# CHM13, 69 lift to a region more than this much larger (up to 82kb larger), while 99.99% lift to a region at most about
-# 9.7kb larger.
+# How much larger than the source vc_region its lifted region can be. This was chosen for the CHM13 liftover: of the
+# 827,968 hg38 variation clusters that lift to CHM13, 69 lift to a region more than this much larger (up to 82kb larger),
+# while 99.99% lift to a region at most about 9.7kb larger. The hg19 pipeline uses the same limit.
 MAX_VC_REGION_SIZE_INCREASE = 10_000
 
 TargetLocus = collections.namedtuple("TargetLocus", ["locus_id", "chrom", "start_0based", "end_1based", "motifs"])
@@ -142,7 +144,7 @@ def lift_variation_cluster(vc_region, member_target_loci, chain_index, counters)
 
     members_in_lifted_vc_region = [locus for locus in member_target_loci if overlaps_lifted_vc_region(locus)]
     if len(members_in_lifted_vc_region) < len(member_target_loci):
-        counters["members whose CHM13 locus doesn't overlap their lifted variation cluster"] += (
+        counters["members whose lifted locus doesn't overlap their lifted variation cluster"] += (
             len(member_target_loci) - len(members_in_lifted_vc_region))
     if not members_in_lifted_vc_region:
         counters["variation clusters with no member that overlaps their lifted vc_region"] += 1
@@ -151,7 +153,7 @@ def lift_variation_cluster(vc_region, member_target_loci, chain_index, counters)
     vc_start_0based = min([target_start_0based] + [locus.start_0based for locus in members_in_lifted_vc_region])
     vc_end_1based = max([target_end_1based] + [locus.end_1based for locus in members_in_lifted_vc_region])
     if (vc_start_0based, vc_end_1based) != (target_start_0based, target_end_1based):
-        counters["variation clusters widened to contain the CHM13 loci of their members"] += 1
+        counters["variation clusters widened to contain the lifted loci of their members"] += 1
     counters["variation clusters lifted over"] += 1
 
     lifted_vc_region = f"{target_chrom}:{vc_start_0based}-{vc_end_1based}"

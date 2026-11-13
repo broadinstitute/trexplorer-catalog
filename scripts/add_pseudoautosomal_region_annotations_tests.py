@@ -33,6 +33,21 @@ class TestAddPseudoautosomalRegionAnnotations(unittest.TestCase):
         self.assertIsNone(get_region(hg38_regions, "chrX", 100000000, 100000030))
         self.assertIsNone(get_region(hg38_regions, "chr1", 500000, 500030))
 
+    def test_get_pseudoautosomal_region_hg19(self):
+        hg19_regions = script.PSEUDOAUTOSOMAL_REGIONS_BY_GENOME_VERSION["hg19"]
+        get_region = script.get_pseudoautosomal_region
+        self.assertEqual(get_region(hg19_regions, "chrX", 60000, 60030), "PAR1")       # starts at PAR1's first base
+        self.assertIsNone(get_region(hg19_regions, "chrX", 59999, 60030))              # starts 1 base before it
+        self.assertEqual(get_region(hg19_regions, "chrX", 2699490, 2699520), "PAR1")   # ends at PAR1's last base
+        self.assertIsNone(get_region(hg19_regions, "chrX", 2699490, 2699521))
+        self.assertEqual(get_region(hg19_regions, "chrX", 154931043, 154931060), "PAR2")
+        self.assertIsNone(get_region(hg19_regions, "chrX", 154931042, 154931060))
+        self.assertEqual(get_region(hg19_regions, "chrX", 155260540, 155260560), "PAR2")
+        self.assertEqual(get_region(hg19_regions, "chrY", 10000, 10030), "PAR1")
+        self.assertEqual(get_region(hg19_regions, "chrY", 59363540, 59363566), "PAR2")
+        # inside hg38's chrX PAR1, but past hg19's
+        self.assertIsNone(get_region(hg19_regions, "chrX", 2700000, 2700030))
+
     def test_get_pseudoautosomal_region_chm13(self):
         chm13_regions = script.PSEUDOAUTOSOMAL_REGIONS_BY_GENOME_VERSION["chm13"]
         get_region = script.get_pseudoautosomal_region

@@ -10,6 +10,8 @@ TRExplorer catalog [release v2.0](https://github.com/broadinstitute/tandem-repea
 
 Among other changes, the [v2.1 pre-release](https://github.com/broadinstitute/trexplorer-catalog/releases/tag/v2.1) adds these annotation fields to the `*.EH.with_annotations.json.gz` and `*.EH.with_annotations.tsv.gz` files: `CentromereAndSatelliteRegion`, `PseudoautosomalRegion`, `UCSC_SegDupMaxSequenceIdentity` and `Vollger2022_SegDupMaxSequenceIdentity`. See its release notes for what each one holds.
 
+The v2.1 files in `gs://tandem-repeat-catalog/v2.1/` also include versions of the catalog for T2T-CHM13 (the `*.chm13.*` files, built by `run_all_steps_to_generate_the_CHM13_catalog.py`) and for hg19 (the `*.hg19.*` files, built by `run_all_steps_to_generate_the_hg19_catalog.py`), for example [TRExplorer.repeat_catalog_v2.1.hg19.1_to_1000bp_motifs.EH.with_annotations.json.gz](https://storage.googleapis.com/tandem-repeat-catalog/v2.1/TRExplorer.repeat_catalog_v2.1.hg19.1_to_1000bp_motifs.EH.with_annotations.json.gz). The hg19 catalog uses the b37 reference with chr-prefixed chromosome names and leaves out chrM. It combines, in order, the known disease-associated loci, Illumina's hg19 catalog of 174k polymorphic TRs, perfect repeats in hg19, and the hg38 catalog lifted over to hg19. In both catalogs, the `Hg38LocusId` and `Hg38LocusMatchType` fields give the matching locus in the hg38 catalog.
+
 The [http://trexplorer.broadinstitute.org](http://trexplorer.broadinstitute.org) companion portal supports interactive exploration, visualization, filtering, and export of the catalog.
 
 See the `Using the TRExplorer Catalog` section of the manuscript below for practical considerations on how to use these resources.

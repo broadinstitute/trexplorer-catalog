@@ -142,6 +142,16 @@ class TestLiftOverCatalog(unittest.TestCase):
         self.assertEqual(lifted_record["LocusIdBeforeLiftover"], "TEST")
         self.assertEqual(lifted_record["SomeAnnotation"], 1)
 
+    def test_drops_locus_that_maps_onto_a_contig_missing_from_the_target_fasta(self):
+        # the chain maps source chr1 onto target chr1, which this target FASTA doesn't have
+        target_fasta_path = os.path.join(self.temp_dir, "target_without_chr1.fa")
+        write_fasta(target_fasta_path, [("chr2", TARGET_CHR2)])
+        lifted_record, reason = script.lift_record(
+            make_record("chr1:10-25"), self.chain_index, self.source_fasta, pysam.FastaFile(target_fasta_path),
+            max_purity_decrease=0.2, keep_only_core_fields=False, original_locus_id_field="LocusIdBeforeLiftover")
+        self.assertIsNone(lifted_record)
+        self.assertEqual(reason, "maps onto a contig that isn't in the target reference FASTA")
+
     def test_keep_only_core_fields(self):
         lifted_record, _ = self.lift(make_record("chr1:10-25", SomeAnnotation=1), keep_only_core_fields=True)
         self.assertNotIn("SomeAnnotation", lifted_record)

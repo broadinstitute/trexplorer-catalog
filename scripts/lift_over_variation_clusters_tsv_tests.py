@@ -71,7 +71,7 @@ class TestLiftOverVariationClustersTsv(unittest.TestCase):
         members = [target_locus("1-1090-1124-CAG", "chr1", 1090, 1124, "CAG")]
         self.assertEqual(script.lift_variation_cluster("chr1:95-150", members, CHAIN_INDEX, counters), [
             "ID=1-1090-1124-CAG;MOTIFS=CAG;STRUC=(CAG)n\tchr1:1090-1124\t0.0\t26\tchr1:1090-1150"])
-        self.assertEqual(counters["variation clusters widened to contain the CHM13 loci of their members"], 1)
+        self.assertEqual(counters["variation clusters widened to contain the lifted loci of their members"], 1)
 
     def test_lift_variation_cluster_that_does_not_lift_over(self):
         counters = collections.Counter()
@@ -89,7 +89,7 @@ class TestLiftOverVariationClustersTsv(unittest.TestCase):
             "ID=5-100-124-CAG;MOTIFS=CAG;STRUC=(CAG)n\tchr5:100-124\t5.0\t26\tchr5:95-150",
             "ID=7-500-520-A;MOTIFS=A;STRUC=(A)n\tchr7:500-520\t0.0\t0\tchr7:500-520",
         ])
-        self.assertEqual(counters["members whose CHM13 locus doesn't overlap their lifted variation cluster"], 1)
+        self.assertEqual(counters["members whose lifted locus doesn't overlap their lifted variation cluster"], 1)
 
     def test_lift_variation_cluster_with_a_far_away_member_on_the_same_chromosome(self):
         # Like hg38 chr9:63724055-63724597, whose only member lifted through another chain to a locus 30Mb away. The
@@ -101,7 +101,7 @@ class TestLiftOverVariationClustersTsv(unittest.TestCase):
             "ID=1-1100-1124-CAG;MOTIFS=CAG;STRUC=(CAG)n\tchr1:1100-1124\t5.0\t26\tchr1:1095-1150",
             "ID=1-900000-900020-A;MOTIFS=A;STRUC=(A)n\tchr1:900000-900020\t0.0\t0\tchr1:900000-900020",
         ])
-        self.assertEqual(counters["members whose CHM13 locus doesn't overlap their lifted variation cluster"], 1)
+        self.assertEqual(counters["members whose lifted locus doesn't overlap their lifted variation cluster"], 1)
 
     def test_lift_variation_cluster_whose_region_lifts_to_a_much_larger_one(self):
         # chr1:0-100 and chr1:100-20,000 are aligned to chr1:0-100 and chr1:20,100-40,000, so the target has a 20kb

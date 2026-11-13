@@ -80,7 +80,7 @@ if compute_UTR_type({"feature_type": "UTR", "transcript_id": "", "UTR_type_from_
 
 # imported after the install block above, since str-analysis is what installs the requests package this module uses
 import run_all_steps_helpers
-from run_all_steps_helpers import chdir, is_bgzipped, tabix_coordinate_flags
+from run_all_steps_helpers import chdir
 
 # Step 11 merges the lifted hg38 catalog and the T2T assemblies source together, which needs a merge_loci that doesn't
 # let the loci it discarded make later loci redundant
@@ -615,36 +615,8 @@ run(f"python3 {base_dir}/scripts/validate_catalog.py "
     f"{annotated_catalog_path}", step_number=29)
 
 # copy files to the release_draft folder and compute catalog stats
-updated_release_files = []
-for path in release_files:
-    if path.endswith(".bed"):
-        updated_release_files.append(f"{path}.gz")
-    else:
-        if path.endswith(".json") or path.endswith(".json.gz") and ".EH." in path:
-            run(f"python3 {base_dir}/scripts/validate_json.py -k LocusId -k LocusStructure -k ReferenceRegion -k VariantType {path}", step_number=30)
-        updated_release_files.append(path)
-
-# Compress and tabix-index the release BEDs so users can query them by region. Compression and
-# indexing are one step on purpose: as separate steps, resuming with --only-step could index an
-# archive without first rebuilding it from the .bed the conversion steps just wrote, and publish
-# stale contents. The plain BED and the ATaRVa BED arrive already compressed and indexed.
-for path in list(updated_release_files):
-    if not path.endswith(".bed.gz") or f"{path}.tbi" in updated_release_files:
-        continue
-    uncompressed = path[:-len(".gz")]
-    if os.path.isfile(uncompressed):
-        # Always rebuild from the .bed an earlier step wrote, so the published archive can
-        # never be a leftover from a previous run into this output directory.
-        prepare = f"bgzip -f {uncompressed} && "
-    elif os.path.isfile(path) and not is_bgzipped(path):
-        # Only an older run's archive survives, compressed with gzip rather than bgzip, which
-        # tabix cannot index. "bgzip -d" reads plain gzip too, and unlike "gzcat | bgzip" it
-        # fails loudly on a truncated input instead of quietly writing a short file.
-        prepare = f"bgzip -f -d {path} && bgzip -f {uncompressed} && "
-    else:
-        prepare = ""
-    run(f"{prepare}tabix -f {tabix_coordinate_flags(path)} {path}", step_number=31)
-    updated_release_files.append(f"{path}.tbi")
+updated_release_files = run_all_steps_helpers.validate_compress_and_index_release_files(
+    release_files, base_dir, run, validate_json_step_number=30, tabix_step_number=31)
 
 for path in updated_release_files:
     run(f"cp {path} {release_draft_folder}", step_number=32)

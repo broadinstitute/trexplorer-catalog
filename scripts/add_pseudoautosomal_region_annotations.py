@@ -3,7 +3,7 @@
 The two PARs at the ends of chrX and chrY have the same sequence on both chromosomes, so males have two copies of the
 TRs in them, as for autosomal TRs. A locus gets the name of the PAR that contains its whole reference region, or None
 if it lies outside both PARs, including a locus that crosses a PAR boundary. The PARs of chrY are masked with Ns in the
-references that the hg38 and CHM13 catalogs are made from, so in practice only chrX loci get a value.
+references that the hg38, CHM13 and hg19 catalogs are made from, so in practice only chrX loci get a value.
 """
 
 import argparse
@@ -22,6 +22,14 @@ PSEUDOAUTOSOMAL_REGIONS_BY_GENOME_VERSION = {
         ("X", 155701382, 156030895, "PAR2"),
         ("Y", 10000, 2781479, "PAR1"),
         ("Y", 56887902, 57217415, "PAR2"),
+    ],
+    # From the Genome Reference Consortium's GRCh37.p13 assembly regions file, with its 1-based starts made 0-based:
+    # https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.14_GRCh37.p13/GCA_000001405.14_GRCh37.p13_assembly_regions.txt
+    "hg19": [
+        ("X", 60000, 2699520, "PAR1"),
+        ("X", 154931043, 155260560, "PAR2"),
+        ("Y", 10000, 2649520, "PAR1"),
+        ("Y", 59034049, 59363566, "PAR2"),
     ],
     # From the T2T consortium's BED file of the CHM13v2.0 PARs:
     # https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0_PAR.bed

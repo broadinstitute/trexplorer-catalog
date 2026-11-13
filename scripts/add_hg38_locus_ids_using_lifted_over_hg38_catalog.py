@@ -11,6 +11,9 @@ Jaccard similarity, then the smallest start, end and Hg38LocusId, so a lifted lo
 and motif always wins. Loci that already have an Hg38LocusId (the lifted loci that the merge kept)
 keep it.
 
+The hg19 pipeline uses this script the same way, with the hg38 catalog lifted over to hg19. What's said here about the
+CHM13 catalog applies to the hg19 catalog too.
+
 A few known disease-associated loci still have no match after that, either because the liftover dropped their hg38
 locus (eg. NOTCH2NLC, whose paralog NOTCH2NLA lifts onto the same CHM13 repeat, and XYLT1, whose 15bp hg38 repeat
 lifts onto 256bp of CHM13) or because their CHM13 definition differs too much from the lifted one (eg. the primary
@@ -212,21 +215,27 @@ def find_lifted_hg38_locus_with_hg38_locus_id(lifted_hg38_loci_by_chrom, record)
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--lifted-over-hg38-catalog", required=True,
-                        help="Path of the hg38 catalog lifted over to CHM13, as filtered for step 11's merge, whose "
-                             "records have the hg38 LocusId in their Hg38LocusId field")
+                        help="Path of the hg38 catalog lifted over to CHM13 or hg19, as filtered for the merge that adds "
+                             "it (step 11 of the CHM13 pipeline, step 10 of the hg19 pipeline), whose records have the "
+                             "hg38 LocusId in their Hg38LocusId field")
     parser.add_argument("--min-overlap-fraction", type=float, required=True,
-                        help="The overlap fraction that step 11's merge used (str_analysis.merge_loci's "
-                             "--overlap-fraction option)")
+                        help="The overlap fraction that the merge which adds the lifted hg38 catalog used "
+                             "(str_analysis.merge_loci's --overlap-fraction option)")
     parser.add_argument("--min-jaccard-similarity", type=float, required=True,
-                        help="The minimum Jaccard similarity that step 11's merge used (str_analysis.merge_loci's "
-                             "--min-jaccard-similarity option)")
+                        help="The minimum Jaccard similarity that the merge which adds the lifted hg38 catalog used "
+                             "(str_analysis.merge_loci's --min-jaccard-similarity option)")
     parser.add_argument("--motif-length-match-sufficient-for-VNTRs", action="store_true",
-                        help="Set this if step 11's merge used str_analysis.merge_loci's option of the same name")
+                        help="Set this if the merge which adds the lifted hg38 catalog used str_analysis.merge_loci's "
+                             "option of the same name")
     parser.add_argument("--known-disease-associated-loci", required=True,
-                        help="Path of the known disease-associated loci catalog that the KnownDiseaseAssociatedLocus "
-                             "labels come from, whose TRExplorerV2 field holds hg38 TRExplorer catalog LocusIds")
+                        help="Path of a known disease-associated loci catalog whose LocusIds are the catalog's "
+                             "KnownDiseaseAssociatedLocus labels, and whose TRExplorerV2 field holds hg38 TRExplorer "
+                             "catalog LocusIds. For CHM13 this is the catalog that the labels come from. For hg19 it's "
+                             "the GRCh37 catalog that the labels come from, with the TRExplorerV2 field copied from "
+                             "the GRCh38 catalog by add_TRExplorerV2_ids_to_GRCh37_known_disease_associated_loci.py, "
+                             "since the GRCh37 catalog has no TRExplorerV2 field of its own.")
     parser.add_argument("-o", "--output-catalog-json-path", required=True, help="Path of the output catalog JSON file")
-    parser.add_argument("catalog_json_path", help="Path of the input CHM13 catalog JSON file")
+    parser.add_argument("catalog_json_path", help="Path of the input CHM13 or hg19 catalog JSON file")
     args = parser.parse_args()
 
     lifted_hg38_loci_by_chrom = read_lifted_over_hg38_loci(args.lifted_over_hg38_catalog)

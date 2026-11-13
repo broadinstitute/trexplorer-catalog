@@ -1,4 +1,5 @@
-"""Helpers shared by run_all_steps_to_generate_the_hg38_catalog.py and run_all_steps_to_generate_the_CHM13_catalog.py.
+"""Helpers shared by run_all_steps_to_generate_the_hg38_catalog.py, run_all_steps_to_generate_the_CHM13_catalog.py and
+run_all_steps_to_generate_the_hg19_catalog.py.
 
 run() and download_unless_local_copy_is_up_to_date() take the pipeline's parsed command-line args, which must include
 dry_run, only_step, start_with_step and end_with_step. Each pipeline script binds its args with functools.partial,
@@ -97,6 +98,55 @@ ONE_BASED_BED_SUFFIXES = (".LongTR.bed.gz", ".HipSTR.bed.gz", ".GangSTR.bed.gz")
 def tabix_coordinate_flags(path):
     """Returns the tabix flags describing path's coordinate convention."""
     return "-s1 -b2 -e3" if path.endswith(ONE_BASED_BED_SUFFIXES) else "-p bed"
+
+def validate_compress_and_index_release_files(release_files, base_dir, run, validate_json_step_number,
+                                              tabix_step_number):
+    """Checks the release's ExpansionHunter JSON catalogs, and bgzips and tabix-indexes its BED files.
+
+    Args:
+        release_files (list): paths of the release files. The BED files that the conversion steps write uncompressed
+            are listed with their .bed paths.
+        base_dir (str): the repository's directory, which holds the scripts folder
+        run (function): the pipeline's run function, with its args bound
+        validate_json_step_number (int): pipeline step that the JSON checks belong to
+        tabix_step_number (int): pipeline step that the compression and indexing belong to
+
+    Returns:
+        list: the release files' paths, with each .bed path replaced by its .bed.gz path, followed by the .tbi index of
+            each BED file that this indexed
+    """
+    updated_release_files = []
+    for path in release_files:
+        if path.endswith(".bed"):
+            updated_release_files.append(f"{path}.gz")
+        else:
+            if path.endswith(".json") or path.endswith(".json.gz") and ".EH." in path:
+                run(f"python3 {base_dir}/scripts/validate_json.py -k LocusId -k LocusStructure -k ReferenceRegion -k VariantType {path}", step_number=validate_json_step_number)
+            updated_release_files.append(path)
+
+    # Compress and tabix-index the release BEDs so users can query them by region. Compression and
+    # indexing are one step on purpose: as separate steps, resuming with --only-step could index an
+    # archive without first rebuilding it from the .bed the conversion steps just wrote, and publish
+    # stale contents. The plain BED and the ATaRVa BED arrive already compressed and indexed.
+    for path in list(updated_release_files):
+        if not path.endswith(".bed.gz") or f"{path}.tbi" in updated_release_files:
+            continue
+        uncompressed = path[:-len(".gz")]
+        if os.path.isfile(uncompressed):
+            # Always rebuild from the .bed an earlier step wrote, so the published archive can
+            # never be a leftover from a previous run into this output directory.
+            prepare = f"bgzip -f {uncompressed} && "
+        elif os.path.isfile(path) and not is_bgzipped(path):
+            # Only an older run's archive survives, compressed with gzip rather than bgzip, which
+            # tabix cannot index. "bgzip -d" reads plain gzip too, and unlike "gzcat | bgzip" it
+            # fails loudly on a truncated input instead of quietly writing a short file.
+            prepare = f"bgzip -f -d {path} && bgzip -f {uncompressed} && "
+        else:
+            prepare = ""
+        run(f"{prepare}tabix -f {tabix_coordinate_flags(path)} {path}", step_number=tabix_step_number)
+        updated_release_files.append(f"{path}.tbi")
+
+    return updated_release_files
 
 def get_remote_file_etag(url):
     """Returns the ETag that the server reports for url. It changes whenever the file's contents change."""

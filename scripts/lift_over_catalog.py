@@ -27,6 +27,8 @@ which can move it into the repeat when the skipped flanking bases resemble the r
 A locus is dropped when:
 - an anchor isn't covered by the chain file even after moving it outward, or the two anchors map through different
   chains
+- it maps onto a contig that the target FASTA doesn't have (eg. UCSC's hg38ToHg19 chain maps some loci onto UCSC's
+  unplaced hg19 contigs like chr1_gl000192_random, which the Broad's GRCh37 FASTA names differently)
 - the repeat is absent from the new reference (the anchors map next to each other), or is shorter than one motif
 - the new reference sequence contains Ns (for example, a hard-masked chrY PAR)
 - the repeat's purity in the new reference is more than --max-purity-decrease below its purity in the old reference,
@@ -84,8 +86,9 @@ ChainBlock = collections.namedtuple("ChainBlock", [
 
 MappedPosition = collections.namedtuple("MappedPosition", ["chrom", "position_0based", "strand", "chain_id"])
 
-# A LocusId that ends in a coordinate-based id after "__", like "EP400__12-132062524-132062611-CAG"
-LOCUS_ID_WITH_COORDINATES_REGEX = re.compile(r"^(.+__)[^_-]+-\d+-\d+-[A-Z]+$")
+# A LocusId that ends in a coordinate-based id after "__", like "EP400__12-132062524-132062611-CAG". Group 1 is the part
+# before the coordinates (eg. "EP400__") and group 2 is the motif.
+LOCUS_ID_WITH_COORDINATES_REGEX = re.compile(r"^(.+__)[^_-]+-\d+-\d+-([A-Z]+)$")
 
 
 def parse_chain_file(chain_file_path):
@@ -355,6 +358,10 @@ def lift_record(record, chain_index, source_fasta, target_fasta, max_purity_decr
         if lifted_interval is None:
             return None, reason
         target_chrom, target_start_0based, target_end_1based, target_strand = lifted_interval
+        # The chain file can map onto contigs that the target FASTA doesn't have, or names differently (eg. UCSC's
+        # hg38ToHg19 chain maps some loci onto chr1_gl000192_random, which the Broad's GRCh37 FASTA calls GL000192.1)
+        if target_chrom not in target_fasta.references:
+            return None, "maps onto a contig that isn't in the target reference FASTA"
         if target_strand == "-":
             bases_skipped_on_the_left, bases_skipped_on_the_right = bases_skipped_on_the_right, bases_skipped_on_the_left
         target_start_0based += bases_skipped_on_the_left
